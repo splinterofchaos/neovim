@@ -10,6 +10,8 @@
 #define OPENLINE_MARKFIX    8   /* fix mark positions */
 #define OPENLINE_COM_LIST  16   /* format comments with list/2nd line indent */
 
+char_u *get_isolated_shell_name();
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "misc1.h.generated.h"
 #endif
