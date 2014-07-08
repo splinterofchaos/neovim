@@ -22,6 +22,8 @@ src/nvim/log.h
 src/nvim/map.c
 src/nvim/map.h
 src/nvim/map_defs.h
+src/nvim/sha256.c
+src/nvim/sha256.h
 src/nvim/os/env.c
 src/nvim/os/event.c
 src/nvim/os/event.h

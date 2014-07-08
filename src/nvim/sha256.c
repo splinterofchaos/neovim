@@ -250,6 +250,7 @@ void sha256_finish(context_sha256_T *ctx, char_u digest[32])
   PUT_UINT32(ctx->state[7], digest, 28);
 }
 
+enum { SHA_STEP = 2 };
 
 /// Gets the hex digest of the buffer.
 ///
@@ -260,7 +261,8 @@ void sha256_finish(context_sha256_T *ctx, char_u digest[32])
 ///
 /// @returns hex digest of "buf[buf_len]" in a static array.
 ///          if "salt" is not NULL also do "salt[salt_len]".
-char_u *sha256_bytes(char_u *buf, uint32_t buf_len, char_u *salt, uint32_t salt_len)
+char_u *sha256_bytes(char_u *buf, uint32_t buf_len, char_u *salt,
+                     uint32_t salt_len)
 {
   char_u sha256sum[32];
   static char_u hexit[65];
@@ -278,7 +280,7 @@ char_u *sha256_bytes(char_u *buf, uint32_t buf_len, char_u *salt, uint32_t salt_
   sha256_finish(&ctx, sha256sum);
 
   for (j = 0; j < 32; j++) {
-    sprintf((char *) hexit + j * 2, "%02x", sha256sum[j]);
+    snprintf((char *) hexit + j * SHA_STEP, SHA_STEP, "%02x", sha256sum[j]);
   }
   hexit[sizeof(hexit) - 1] = '\0';
   return hexit;
@@ -335,7 +337,7 @@ int sha256_self_test(void)
       sha256_finish(&ctx, sha256sum);
 
       for (j = 0; j < 32; j++) {
-        sprintf(output + j * 2, "%02x", sha256sum[j]);
+        snprintf(output + j * SHA_STEP, SHA_STEP, "%02x", sha256sum[j]);
       }
     }
 
@@ -371,18 +373,17 @@ static unsigned int get_some_time(void)
 /// @param header_len
 /// @param salt
 /// @param salt_len
-void sha2_seed(char_u *header, long unsigned int header_len, char_u *salt,
-               unsigned int salt_len)
+void sha2_seed(char_u *header, size_t header_len, char_u *salt, size_t salt_len)
 {
   static char_u random_data[1000];
   char_u sha256sum[32];
   context_sha256_T ctx;
 
-  srand(get_some_time());
+  unsigned int seed = get_some_time();
 
-  long unsigned int i;
+  size_t i;
   for (i = 0; i < (int) sizeof(random_data) - 1; i++) {
-    random_data[i] = (char_u) ((get_some_time() ^ (unsigned int) rand()) & 0xff);
+    random_data[i] = (char_u) rand_r(&seed) & 0xff;
   }
   sha256_start(&ctx);
   sha256_update(&ctx, (char_u *) random_data, sizeof(random_data));
