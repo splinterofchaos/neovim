@@ -13,6 +13,7 @@
 /// sha256_self_test() is implicitly called once.
 
 #include <string.h>
+#include <stdbool.h>
 
 #include "nvim/vim.h"
 #include "nvim/sha256.h"
@@ -304,22 +305,23 @@ static char *sha_self_test_vector[] = {
 
 /// Perform a test on the SHA256 algorithm.
 ///
-/// @return FAIL or OK.
-int sha256_self_test(void)
+/// @return true on success.
+bool sha256_self_test(void)
 {
   int i, j;
   char output[65];
   context_sha256_T ctx;
   char_u buf[1000];
   char_u sha256sum[32];
-  static int failures = 0;
   char_u *hexit;
-  static int sha256_self_tested = 0;
 
-  if (sha256_self_tested > 0) {
-    return failures > 0 ? FAIL : OK;
+  static bool ran = false;
+  static bool failed = false; /* if we ran, did we fail? */
+
+  if (ran) {
+    return !failed;
   }
-  sha256_self_tested = 1;
+  ran = true;
 
   for (i = 0; i < 3; i++) {
     if (i < 2) {
@@ -342,13 +344,13 @@ int sha256_self_test(void)
     }
 
     if (memcmp(output, sha_self_test_vector[i], 64)) {
-      failures++;
+      failed = true;
       output[sizeof(output) - 1] = '\0';
 
       // printf("sha256_self_test %d failed %s\n", i, output);
     }
   }
-  return failures > 0 ? FAIL : OK;
+  return !failed;
 }
 
 static unsigned int get_some_time(void)
