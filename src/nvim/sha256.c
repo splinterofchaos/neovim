@@ -260,7 +260,7 @@ void sha256_finish(context_sha256_T *ctx, char_u digest[32])
 ///
 /// @returns hex digest of "buf[buf_len]" in a static array.
 ///          if "salt" is not NULL also do "salt[salt_len]".
-char_u *sha256_bytes(char_u *buf, int buf_len, char_u *salt, int salt_len)
+char_u *sha256_bytes(char_u *buf, uint32_t buf_len, char_u *salt, uint32_t salt_len)
 {
   char_u sha256sum[32];
   static char_u hexit[65];
@@ -322,7 +322,7 @@ int sha256_self_test(void)
   for (i = 0; i < 3; i++) {
     if (i < 2) {
       hexit = sha256_bytes((char_u *) sha_self_test_msg[i],
-                           (int) STRLEN(sha_self_test_msg[i]),
+                           (uint32_t) STRLEN(sha_self_test_msg[i]),
                            NULL, 0);
       STRCPY(output, hexit);
     } else {
@@ -371,7 +371,8 @@ static unsigned int get_some_time(void)
 /// @param header_len
 /// @param salt
 /// @param salt_len
-void sha2_seed(char_u *header, int header_len, char_u *salt, int salt_len)
+void sha2_seed(char_u *header, long unsigned int header_len, char_u *salt,
+               unsigned int salt_len)
 {
   static char_u random_data[1000];
   char_u sha256sum[32];
@@ -379,9 +380,9 @@ void sha2_seed(char_u *header, int header_len, char_u *salt, int salt_len)
 
   srand(get_some_time());
 
-  int i;
+  long unsigned int i;
   for (i = 0; i < (int) sizeof(random_data) - 1; i++) {
-    random_data[i] = (char_u) ((get_some_time() ^ rand()) & 0xff);
+    random_data[i] = (char_u) ((get_some_time() ^ (unsigned int) rand()) & 0xff);
   }
   sha256_start(&ctx);
   sha256_update(&ctx, (char_u *) random_data, sizeof(random_data));

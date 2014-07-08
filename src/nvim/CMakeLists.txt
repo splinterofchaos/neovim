@@ -45,6 +45,7 @@ set(CONV_SRCS
   map.c
   memory.c
   map.c
+  sha256.c
   os/env.c
   os/event.c
   os/job.c
