@@ -66,7 +66,7 @@ set(CONV_SRCS
   )
 
 set_source_files_properties(
-  ${CONV_SRCS} PROPERTIES COMPILE_FLAGS "${COMPILE_FLAGS} -Wconversion")
+    ${CONV_SRCS} PROPERTIES COMPILE_FLAGS "${COMPILE_FLAGS} -Wconversion")
 
 if(CMAKE_C_COMPILER_ID MATCHES "Clang")
   if(DEFINED ENV{SANITIZE})

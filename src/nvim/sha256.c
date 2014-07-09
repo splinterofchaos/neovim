@@ -179,18 +179,16 @@ static void sha256_process(context_sha256_T *ctx, char_u data[64])
   ctx->state[7] += H;
 }
 
-void sha256_update(context_sha256_T *ctx, char_u *input, uint32_t length)
+void sha256_update(context_sha256_T *ctx, char_u *input, size_t length)
 {
-  uint32_t left, fill;
-
   if (length == 0) {
     return;
   }
 
-  left = ctx->total[0] & 0x3F;
-  fill = 64 - left;
+  unsigned int left = ctx->total[0] & 0x3F;
+  unsigned int fill = 64 - left;
 
-  ctx->total[0] += length;
+  ctx->total[0] += (uint32_t) length;
   ctx->total[0] &= 0xFFFFFFFF;
 
   if (ctx->total[0] < length) {
@@ -262,12 +260,11 @@ enum { SHA_STEP = 2 };
 ///
 /// @returns hex digest of "buf[buf_len]" in a static array.
 ///          if "salt" is not NULL also do "salt[salt_len]".
-char_u *sha256_bytes(char_u *buf, uint32_t buf_len, char_u *salt,
-                     uint32_t salt_len)
+char_u *sha256_bytes(char_u *buf, size_t buf_len, char_u *salt,
+                     size_t salt_len)
 {
   char_u sha256sum[32];
-  static char_u hexit[65];
-  int j;
+  static char hexit[65];
   context_sha256_T ctx;
 
   sha256_self_test();
@@ -280,11 +277,11 @@ char_u *sha256_bytes(char_u *buf, uint32_t buf_len, char_u *salt,
   }
   sha256_finish(&ctx, sha256sum);
 
-  for (j = 0; j < 32; j++) {
-    snprintf((char *) hexit + j * SHA_STEP, SHA_STEP, "%02x", sha256sum[j]);
+  for (int j = 0; j < 32; j++) {
+    snprintf(hexit + j * SHA_STEP, SHA_STEP, "%02x", sha256sum[j]);
   }
   hexit[sizeof(hexit) - 1] = '\0';
-  return hexit;
+  return (char_u *)hexit;
 }
 
 // These are the standard FIPS-180-2 test vectors
@@ -326,7 +323,7 @@ bool sha256_self_test(void)
   for (i = 0; i < 3; i++) {
     if (i < 2) {
       hexit = sha256_bytes((char_u *) sha_self_test_msg[i],
-                           (uint32_t) STRLEN(sha_self_test_msg[i]),
+                           STRLEN(sha_self_test_msg[i]),
                            NULL, 0);
       STRCPY(output, hexit);
     } else {
@@ -334,7 +331,7 @@ bool sha256_self_test(void)
       memset(buf, 'a', 1000);
 
       for (j = 0; j < 1000; j++) {
-        sha256_update(&ctx, (char_u *) buf, 1000);
+        sha256_update(&ctx, buf, 1000);
       }
       sha256_finish(&ctx, sha256sum);
 
@@ -384,11 +381,11 @@ void sha2_seed(char_u *header, size_t header_len, char_u *salt, size_t salt_len)
   unsigned int seed = get_some_time();
 
   size_t i;
-  for (i = 0; i < (int) sizeof(random_data) - 1; i++) {
+  for (i = 0; i < sizeof(random_data) - 1; i++) {
     random_data[i] = (char_u) rand_r(&seed) & 0xff;
   }
   sha256_start(&ctx);
-  sha256_update(&ctx, (char_u *) random_data, sizeof(random_data));
+  sha256_update(&ctx, random_data, sizeof(random_data));
   sha256_finish(&ctx, sha256sum);
 
   // put first block into header.
