@@ -2,6 +2,7 @@
 require 'lfs'
 
 path = cimport './src/nvim/path.h'
+misc = cimport './src/nvim/misc1.h'
 
 -- import constants parsed by ffi
 {:kEqualFiles, :kDifferentFiles, :kBothFilesMissing, :kOneFileMissing, :kEqualFileNames} = path
@@ -79,6 +80,15 @@ describe 'path function', ->
 
     it 'returns the whole file name if there is no separator', ->
       eq 'file.txt', path_tail_with_sep 'file.txt'
+
+  describe 'get_isolated_shell_name', ->
+    shell_name = () ->
+      name = misc.get_isolated_shell_name()
+      neq NULL, name
+      ffi.string name
+
+    it 'returns the shell name', ->
+      eq 'fish', shell_name()
 
   describe 'path_next_component', ->
     path_next_component = (file) ->

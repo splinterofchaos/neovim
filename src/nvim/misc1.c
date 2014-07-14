@@ -3512,6 +3512,9 @@ int goto_im(void)
 */
 char_u *get_isolated_shell_name()
 {
+  if( p_sh == NULL )
+    return NULL;
+
   char_u *p;
   p = skiptowhite(p_sh);
   if (*p == NUL) {
