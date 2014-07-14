@@ -3512,6 +3512,9 @@ int goto_im(void)
 */
 char_u *get_isolated_shell_name()
 {
+  if( p_sh == NULL )
+    return NULL;
+
   char_u *p;
   p = skiptowhite(p_sh);
   if (*p == NUL) {
@@ -3529,3 +3532,11 @@ char_u *get_isolated_shell_name()
   }
   return p;
 }
+
+#ifdef DEBUG
+/// Mocks the shell name for unit testing. 
+void mock_shell(char* sh) {
+  p_sh = (char_u *)sh;
+}
+#endif
+

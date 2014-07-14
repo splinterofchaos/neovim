@@ -2,6 +2,7 @@
 require 'lfs'
 
 path = cimport './src/nvim/path.h'
+misc = cimport './src/nvim/misc1.h'
 
 -- import constants parsed by ffi
 {:kEqualFiles, :kDifferentFiles, :kBothFilesMissing, :kOneFileMissing, :kEqualFileNames} = path
@@ -79,6 +80,23 @@ describe 'path function', ->
 
     it 'returns the whole file name if there is no separator', ->
       eq 'file.txt', path_tail_with_sep 'file.txt'
+
+  describe 'get_isolated_shell_name', ->
+    shell_name = (mock) ->
+      misc.mock_shell(to_cstr mock)
+      name = ffi.gc(misc.get_isolated_shell_name(), ffi.C.free)
+      neq NULL, name
+      ffi.string name
+
+    it 'returns the shell name', ->
+      eq 'fish', shell_name '/usr/bin/fish -a -b -c'
+      eq   'sh', shell_name '/bin/sh 1 2 3'
+
+    -- These cause an error: 
+    --   Vim: Data too large to fit into virtual memory space.
+    it 'is an identity function when shell=name', ->
+      eq 'fish', shell_name 'fish'
+      eq   'sh', shell_name 'sh'
 
   describe 'path_next_component', ->
     path_next_component = (file) ->
