@@ -84,7 +84,7 @@ describe 'path function', ->
   describe 'get_isolated_shell_name', ->
     shell_name = (mock) ->
       misc.mock_shell(to_cstr mock)
-      name = misc.get_isolated_shell_name()
+      name = ffi.gc(misc.get_isolated_shell_name(), ffi.C.free)
       neq NULL, name
       ffi.string name
 
