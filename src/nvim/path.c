@@ -390,6 +390,24 @@ FullName_save (
   return new_fname;
 }
 
+/// Saves the executable path.
+///
+/// @param name An absolute or relative path.
+///
+/// @return UNIX: The absolute address of `name` if it starts with '.'.
+/// @return A duplicate of `name`, otherwise.
+char_u *save_executable_path(const char_u *name)
+  FUNC_ATTR_MALLOC FUNC_ATTR_NONNULL_RET FUNC_ATTR_NONNULL_ALL
+{
+#ifdef UNIX
+  if (name[0] == '.') {
+    return FullName_save(name, true);
+  }
+#endif
+  return vim_strsave(name);
+}
+
+
 #if !defined(NO_EXPANDPATH) || defined(PROTO)
 
 #if defined(UNIX) || defined(USE_UNIXFILENAME) || defined(PROTO)
@@ -1219,7 +1237,7 @@ addfile (
     return;
 
   /* If the file isn't executable, may not add it.  Do accept directories. */
-  if (!isdir && (flags & EW_EXEC) && !os_can_exe(f))
+  if (!isdir && (flags & EW_EXEC) && !os_can_exe(f, NULL))
     return;
 
   char_u *p = xmalloc(STRLEN(f) + 1 + isdir);
