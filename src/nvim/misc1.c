@@ -3520,7 +3520,7 @@ char_u *get_isolated_shell_name()
   if (*p == NUL) {
     /* No white space, use the tail. */
     char_u *tail = path_tail(p_sh);
-    p = vim_strnsave(tail, (int)(tail - p_sh - 1));
+    p = vim_strnsave(tail, (int)(p - tail));
   } else {
     char_u  *p1, *p2;
 
