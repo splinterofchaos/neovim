@@ -118,7 +118,7 @@ describe 'fs function', ->
 
   describe 'os_can_exe', ->
     os_can_exe = (name) ->
-      fs.os_can_exe (to_cstr name)
+      fs.os_can_exe(to_cstr name, ffi.C.NULL)
 
     it 'returns false when given a directory', ->
       eq false, (os_can_exe './unit-test-directory')

@@ -73,7 +73,22 @@ bool os_isdir(const char_u *name)
   return true;
 }
 
-/// Check if the given path represents an executable file.
+char_u *save_executable_path(const char_u *name) {
+  char_u *ret;
+#ifdef UNIX
+  if (name[0] == '.')
+      ret = FullName_save((char_u *)name, true);
+  else
+#endif
+      ret = vim_strsave((char_u *)name);
+
+  return ret;
+}
+
+/// Checks if the given path represents an executable file.
+///
+/// @param[in]  name The name of the executable.
+/// @param[out] ex   Path of the executable, if not `NULL`.
 ///
 /// @return `true` if `name` is executable and
 ///   - can be found in $PATH,
@@ -81,16 +96,24 @@ bool os_isdir(const char_u *name)
 ///   - is absolute.
 ///
 /// @return `false` otherwise.
-bool os_can_exe(const char_u *name)
+bool os_can_exe(const char_u *name, char_u **ex)
 {
   // If it's an absolute or relative path don't need to use $PATH.
   if (path_is_absolute_path(name) ||
      (name[0] == '.' && (name[1] == '/' ||
                         (name[1] == '.' && name[2] == '/')))) {
-    return is_executable(name);
+    if (is_executable(name)) {
+      if (ex != NULL) {
+        *ex = save_executable_path(name);
+      }
+
+      return true;
+    }
+
+    return false;
   }
 
-  return is_executable_in_path(name);
+  return is_executable_in_path(name, ex);
 }
 
 // Return true if "name" is an executable file, false if not or it doesn't
@@ -110,10 +133,13 @@ static bool is_executable(const char_u *name)
   return false;
 }
 
-/// Check if a file is inside the $PATH and is executable.
+/// Checks if a file is inside the $PATH and is executable.
+///
+/// @param[in]  name The name of the executable.
+/// @param[out] ex   Path of the executable, if not `NULL`.
 ///
 /// @return `true` if `name` is an executable inside $PATH.
-static bool is_executable_in_path(const char_u *name)
+static bool is_executable_in_path(const char_u *name, char_u **ex)
 {
   const char *path = getenv("PATH");
   // PATH environment variable does not exist or is empty.
@@ -138,7 +164,10 @@ static bool is_executable_in_path(const char_u *name)
     append_path((char *) buf, (const char *) name, (int)buf_len);
 
     if (is_executable(buf)) {
-      // Found our executable. Free buf and return.
+      // Check if the caller asked for a copy of the path.
+      if (ex != NULL)
+        *ex = save_executable_path(buf);
+
       free(buf);
       return true;
     }
