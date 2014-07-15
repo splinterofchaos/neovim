@@ -3533,3 +3533,11 @@ char_u *get_isolated_shell_name()
   }
   return p;
 }
+
+#ifdef DEBUG
+/// Mocks the shell name for unit testing. 
+void mock_shell(char* sh) {
+  p_sh = (char_u *)sh;
+}
+#endif
+
