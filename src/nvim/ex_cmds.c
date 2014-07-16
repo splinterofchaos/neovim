@@ -1319,8 +1319,13 @@ make_filter_cmd (
 )
 {
   size_t len;
+  char_u *sh = get_isolated_shell_name();
+
   /* Account for fish's different syntax for subshells */
-  bool is_fish_shell = fnamecmp(get_isolated_shell_name(), "fish") == 0;
+  bool is_fish_shell = fnamecmp(sh, "fish") == 0;
+
+  free(sh);
+
   if (is_fish_shell) {
     len = STRLEN(cmd) + 13;                 /* "begin; " + "; end" + NUL */
   } else {
