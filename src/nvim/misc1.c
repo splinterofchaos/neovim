@@ -3503,7 +3503,7 @@ int goto_im(void)
 }
 
 /*
-* Isolate the name of the shell:
+* Isolate the name of the shell in allocated space:
 * - Skip beyond any path.  E.g., "/usr/bin/csh -f" -> "csh -f".
 * - Remove any argument.  E.g., "csh -f" -> "csh".
 * But don't allow a space in the path, so that this works:
