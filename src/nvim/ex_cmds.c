@@ -1316,7 +1316,18 @@ do_shell (
 /// @returns an allocated string with the shell command.
 char_u *make_filter_cmd(char_u *cmd, char_u *itmp, char_u *otmp)
 {
-  size_t len = STRLEN(cmd) + sizeof("("")") + 1;
+  bool is_fish_shell =
+#if defined(UNIX)
+    fnamencmp(invocation_path_tail(p_sh, NULL), "fish", sizeof("fish")) == 0;
+#else
+    false;
+#endif
+
+  size_t len = STRLEN(cmd) + 1;  // At least enough space for cmd + NUL.
+  
+  len += is_fish_shell ?  sizeof("begin; ""; end")
+                       :  sizeof("("")");
+
   if (itmp != NULL)
     len += STRLEN(itmp) + sizeof(" { "" < "" } ");
   if (otmp != NULL)
@@ -1324,18 +1335,22 @@ char_u *make_filter_cmd(char_u *cmd, char_u *itmp, char_u *otmp)
   char_u *buf = xmalloc(len);
 
 #if defined(UNIX)
-  // Put braces around the command (for concatenated commands) when
+  // Put delimiters around the command (for concatenated commands) when
   // redirecting input and/or output.
-  if (itmp != NULL || otmp != NULL)
-    vim_snprintf((char *)buf, len, "(%s)", (char *)cmd);
-  else
+  if (itmp != NULL || otmp != NULL) {
+    char *fmt = is_fish_shell ? "begin; %s; end" 
+                              :       "(%s)";
+    vim_snprintf((char *)buf, len, fmt, (char *)cmd);
+  } else {
     STRCPY(buf, cmd);
+  }
+
   if (itmp != NULL) {
     STRCAT(buf, " < ");
     STRCAT(buf, itmp);
   }
 #else
-  // for shells that don't understand braces around commands, at least allow
+  // For shells that don't understand braces around commands, at least allow
   // the use of commands in a pipe.
   STRCPY(buf, cmd);
   if (itmp != NULL) {
