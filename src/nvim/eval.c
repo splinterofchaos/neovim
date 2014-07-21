@@ -14098,7 +14098,8 @@ static void f_system(typval_T *argvars, typval_T *rettv)
   set_vim_var_nr(VV_SHELL_ERROR, (long) status);
 
   if (res) {
-    DLOG("os_system <- %.*s\n", nread, res);
+    // DLOG("os_system <- %.*s\n", nread, res);
+    DLOG("os_system <- %zu\n", nread);
   } else {
     DLOG("os_system <- (null)");
     }
