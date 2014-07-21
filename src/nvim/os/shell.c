@@ -345,7 +345,7 @@ static void system_data_cb(RStream *rstream, void *data, bool eof)
   dyn_buffer_t *buf = job_data(job);
 
   size_t nread = rstream_available(rstream);
-  ELOG("JOB READ %p, %zu", job, nread);
+  // ELOG("JOB READ %p, %zu", job, nread);
 
   dyn_buf_ensure(buf, buf->len + nread + 1);
   rstream_read(rstream, buf->data + buf->len, nread);
