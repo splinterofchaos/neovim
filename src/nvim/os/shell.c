@@ -321,7 +321,8 @@ int os_system(const char *cmd,
 }
 
 #define ROUNDUP32(x) \
-  (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
+  (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, \
+  (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
 /// dyn_buf_ensure - ensures at least `desired` bytes in buffer
 ///
