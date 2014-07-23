@@ -117,6 +117,30 @@ describe 'path function', ->
     it 'returns the whole file name if there is no separator', ->
       eq 'file.txt', path_tail_with_sep 'file.txt'
 
+  describe 'invocation_path_tail', ->
+    -- Returns the path tail and length (out param) of the tail.
+    invocation_path_tail = (invk) ->
+      plen = ffi.new 'size_t[?]', 1
+      tail = path.invocation_path_tail (to_cstr invk), plen
+      neq NULL, tail
+      (internalize tail), plen[0]
+
+    it 'returns the executable name of a given invocation', ->
+      invk, _ = invocation_path_tail 'directory/exe a b c'
+      eq 'exe a b c', invk
+
+    it 'returns the size of the executable name of a given invocation', ->
+      _, len = invocation_path_tail 'directory/exe a b c'
+      eq 3, len
+
+    it 'is equivalent to path_tail when args do not contain a path separator', ->
+      invk = "a/b/c x y z"
+
+      ptail = path.path_tail to_cstr invk
+      neq NULL, ptail
+
+      eq (ffi.string ptail), (invocation_path_tail invk)
+
   describe 'path_next_component', ->
     path_next_component = (file) ->
       res = path.path_next_component (to_cstr file)
