@@ -14,6 +14,7 @@
 #include "nvim/os/event_defs.h"
 #include "nvim/os/time.h"
 #include "nvim/os/shell.h"
+#include "nvim/os/signal.h"
 #include "nvim/vim.h"
 #include "nvim/memory.h"
 #include "nvim/term.h"
@@ -25,6 +26,8 @@
 struct job {
   // Job id the index in the job table plus one.
   int id;
+  // Exit status code of the job process
+  int64_t status;
   // Number of polls after a SIGTERM that will trigger a SIGKILL
   int exit_timeout;
   // exit_cb may be called while there's still pending data from stdout/stderr.
@@ -163,6 +166,7 @@ Job *job_start(char **argv,
   // Initialize
   job->id = i + 1;
   *status = job->id;
+  job->status = -1;
   job->pending_refs = 3;
   job->pending_closes = 4;
   job->data = data;
@@ -255,6 +259,46 @@ Job *job_find(int id)
 void job_stop(Job *job)
 {
   job->stopped = true;
+}
+
+#include "nvim/log.h"
+
+/// job_wait - synchronously wait for a job to finish
+///
+/// @param job The job (cannot be NULL)
+/// @param ms Number of milliseconds to wait, 0 for not waiting, -1 for
+///        waiting until the job quits. When passing 0 (don't wait), the
+///        function will return the jobs status code if it has exited
+/// @return returns the status code of the exited job, -1 if the job was
+///         interrupted. -2 if the job is still running and the `timeout` has
+///         expired.
+int job_wait(Job *job, int ms) FUNC_ATTR_NONNULL_ALL
+{
+  EventSource sources[] = {job_event_source(job), signal_event_source(), NULL};
+
+  while (1) {
+    // if I understand it right, this also returns when the rstreams return
+    // something of the process. Will its read_cb still be called?
+    bool status = event_poll(ms, sources);
+
+    // check if the poll timed out
+    if (ms > 0 && !status) {
+      return -2;
+    }
+
+    // we'll assume that a user frantically hitting interrupt doesn't like
+    // the current job. Signal that it has to be killed and stop wating.
+    if (got_int) {
+      job_stop(job);
+      return -1;
+    }
+
+    // check if the job has exited (and the status is available).
+    // Question @tarruda: is this a good way to check for exit?
+    if (job->pending_refs == 0) {
+      return (int) job->status;
+    }
+  }
 }
 
 /// Writes data to the job's stdin. This is a non-blocking operation, it
@@ -377,6 +421,8 @@ static void exit_cb(uv_process_t *proc, int64_t status, int term_signal)
 {
   Job *job = handle_get_job((uv_handle_t *)proc);
 
+  ELOG("THE REAL DEAL EXIT CB WAS CALLED!");
+  job->status = status;
   if (--job->pending_refs == 0) {
     emit_exit_event(job);
   }
@@ -396,6 +442,7 @@ static void close_cb(uv_handle_t *handle)
 {
   Job *job = handle_get_job(handle);
 
+  ELOG("the strange, weird CLOSE_CB was called");
   if (--job->pending_closes == 0) {
     // Only free the job memory after all the associated handles are properly
     // closed by libuv
