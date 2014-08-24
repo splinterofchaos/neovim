@@ -41,8 +41,12 @@
 // $ gcc -E -dM - </dev/null
 // $ echo | clang -dM -E -
 
-#ifdef FUNC_ATTR_MALLOC
-  #undef FUNC_ATTR_MALLOC
+#ifdef FUNC_ATTR_TRY_MALLOC
+  #undef FUNC_ATTR_TRY_MALLOC
+#endif
+
+#ifdef FUNC_ATTR_XMALLOC
+  #undef FUNC_ATTR_XMALLOC
 #endif
 
 #ifdef FUNC_ATTR_ALLOC_SIZE
@@ -179,7 +183,13 @@
 #endif
 
 #ifdef DEFINE_FUNC_ATTRIBUTES
-  #define FUNC_ATTR_MALLOC REAL_FATTR_MALLOC
+  #define FUNC_ATTR_TRY_MALLOC REAL_FATTR_MALLOC \
+                               REAL_FATTR_NONNULL_ALL \
+                               REAL_FATTR_WARN_UNUSED_RESULT
+  #define FUNC_ATTR_XMALLOC REAL_FATTR_MALLOC \
+                            REAL_FATTR_NONNULL_RET \
+                            REAL_FATTR_NONNULL_ALL \
+                            REAL_FATTR_WARN_UNUSED_RESULT
   #define FUNC_ATTR_ALLOC_SIZE(x) REAL_FATTR_ALLOC_SIZE(x)
   #define FUNC_ATTR_ALLOC_SIZE_PROD(x,y) REAL_FATTR_ALLOC_SIZE_PROD(x,y)
   #define FUNC_ATTR_ALLOC_ALIGN(x) REAL_FATTR_ALLOC_ALIGN(x)
@@ -192,7 +202,8 @@
   #define FUNC_ATTR_NONNULL_ARG(...) REAL_FATTR_NONNULL_ARG(__VA_ARGS__)
   #define FUNC_ATTR_NONNULL_RET REAL_FATTR_NONNULL_RET
 #elif !defined(DO_NOT_DEFINE_EMPTY_ATTRIBUTES)
-  #define FUNC_ATTR_MALLOC
+  #define FUNC_ATTR_TRY_MALLOC
+  #define FUNC_ATTR_XMALLOC
   #define FUNC_ATTR_ALLOC_SIZE(x)
   #define FUNC_ATTR_ALLOC_SIZE_PROD(x,y)
   #define FUNC_ATTR_ALLOC_ALIGN(x)

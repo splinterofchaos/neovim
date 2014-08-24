@@ -75,7 +75,7 @@ static void try_to_free_memory(void)
 /// @see {try_to_free_memory}
 /// @param size
 /// @return pointer to allocated space. NULL if out of memory
-void *try_malloc(size_t size) FUNC_ATTR_MALLOC FUNC_ATTR_ALLOC_SIZE(1)
+void *try_malloc(size_t size) FUNC_ATTR_TRY_MALLOC FUNC_ATTR_ALLOC_SIZE(1)
 {
   void *ret = malloc(size);
 
@@ -98,7 +98,8 @@ void *try_malloc(size_t size) FUNC_ATTR_MALLOC FUNC_ATTR_ALLOC_SIZE(1)
 /// @see {try_malloc}
 /// @param size
 /// @return pointer to allocated space. NULL if out of memory
-void *verbose_try_malloc(size_t size) FUNC_ATTR_MALLOC FUNC_ATTR_ALLOC_SIZE(1)
+void *verbose_try_malloc(size_t size)
+  FUNC_ATTR_TRY_MALLOC FUNC_ATTR_ALLOC_SIZE(1)
 {
   void *ret = try_malloc(size);
   if (!ret) {
@@ -116,7 +117,7 @@ void *verbose_try_malloc(size_t size) FUNC_ATTR_MALLOC FUNC_ATTR_ALLOC_SIZE(1)
 /// @param size
 /// @return pointer to allocated space. Never NULL
 void *xmalloc(size_t size)
-  FUNC_ATTR_MALLOC FUNC_ATTR_ALLOC_SIZE(1) FUNC_ATTR_NONNULL_RET
+  FUNC_ATTR_XMALLOC FUNC_ATTR_ALLOC_SIZE(1)
 {
   void *ret = try_malloc(size);
 
@@ -134,7 +135,7 @@ void *xmalloc(size_t size)
 /// @param size
 /// @return pointer to allocated space. Never NULL
 void *xcalloc(size_t count, size_t size)
-  FUNC_ATTR_MALLOC FUNC_ATTR_ALLOC_SIZE_PROD(1, 2) FUNC_ATTR_NONNULL_RET
+  FUNC_ATTR_XMALLOC FUNC_ATTR_ALLOC_SIZE_PROD(1, 2)
 {
   void *ret = calloc(count, size);
 
@@ -188,7 +189,7 @@ void *xrealloc(void *ptr, size_t size)
 /// @param size
 /// @return pointer to allocated space. Never NULL
 void *xmallocz(size_t size)
-  FUNC_ATTR_MALLOC FUNC_ATTR_NONNULL_RET FUNC_ATTR_WARN_UNUSED_RESULT
+  FUNC_ATTR_XMALLOC 
 {
   size_t total_size = size + 1;
   void *ret;
@@ -213,8 +214,7 @@ void *xmallocz(size_t size)
 /// @param data Pointer to the data that will be copied
 /// @param len number of bytes that will be copied
 void *xmemdupz(const void *data, size_t len)
-  FUNC_ATTR_MALLOC FUNC_ATTR_NONNULL_RET FUNC_ATTR_WARN_UNUSED_RESULT
-  FUNC_ATTR_NONNULL_ALL
+  FUNC_ATTR_XMALLOC
 {
   return memcpy(xmallocz(len), data, len);
 }
@@ -308,7 +308,7 @@ size_t xstrlcpy(char *restrict dst, const char *restrict src, size_t size)
 /// @param str 0-terminated string that will be copied
 /// @return pointer to a copy of the string
 char *xstrdup(const char *str)
-  FUNC_ATTR_MALLOC FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_NONNULL_RET
+  FUNC_ATTR_XMALLOC
 {
   char *ret = strdup(str);
 
@@ -330,7 +330,7 @@ char *xstrdup(const char *str)
 /// @param str 0-terminated string that will be copied
 /// @return pointer to a copy of the string
 char *xstrndup(const char *str, size_t len)
-  FUNC_ATTR_MALLOC FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_NONNULL_RET
+  FUNC_ATTR_XMALLOC
 {
   char *p = memchr(str, '\0', len);
   return xmemdupz(str, p ? (size_t)(p - str) : len);
@@ -343,7 +343,7 @@ char *xstrndup(const char *str, size_t len)
 /// @param len size of the chunk
 /// @return a pointer
 void *xmemdup(const void *data, size_t len)
-  FUNC_ATTR_MALLOC FUNC_ATTR_ALLOC_SIZE(2) FUNC_ATTR_NONNULL_RET
+  FUNC_ATTR_XMALLOC FUNC_ATTR_ALLOC_SIZE(2)
   FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_NONNULL_ALL
 {
   return memcpy(xmalloc(len), data, len);
