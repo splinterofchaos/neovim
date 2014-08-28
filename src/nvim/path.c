@@ -91,7 +91,7 @@ FileComparison path_full_compare(char_u *s1, char_u *s2, int checkname)
 ///   - The position of the last path separator + 1. (i.e. empty string, if
 ///   fname ends in a slash).
 ///   - Never NULL.
-char_u *path_tail(char_u *fname)
+char_u *path_tail(char_u *fname) FUNC_ATTR_PURE
 {
   if (fname == NULL) {
     return (char_u *)"";
@@ -118,7 +118,7 @@ char_u *path_tail(char_u *fname)
 ///   - Pointer to the last path separator of `fname`, if there is any.
 ///   - `fname` if it contains no path separator.
 ///   - Never NULL.
-char_u *path_tail_with_sep(char_u *fname)
+char_u *path_tail_with_sep(char_u *fname) FUNC_ATTR_PURE
 {
   assert(fname != NULL);
 
@@ -141,7 +141,7 @@ char_u *path_tail_with_sep(char_u *fname)
 ///
 /// @return The position of the last path separator + 1.
 const char_u *invocation_path_tail(const char_u *invocation, size_t *len)
-    FUNC_ATTR_NONNULL_RET FUNC_ATTR_NONNULL_ARG(1)
+    FUNC_ATTR_NONNULL_RET FUNC_ATTR_NONNULL_ARG(1) FUNC_ATTR_PURE
 {
   const char_u *tail = get_past_head((char_u *) invocation);
   const char_u *p = tail;
@@ -165,7 +165,8 @@ const char_u *invocation_path_tail(const char_u *invocation, size_t *len)
 /// @param fname A file path. (Must be != NULL.)
 /// @return Pointer to first found path separator + 1.
 /// An empty string, if `fname` doesn't contain a path separator,
-char_u *path_next_component(char_u *fname)
+char_u *path_next_component(char_u *fname) 
+    FUNC_ATTR_NONNULL_RET FUNC_ATTR_NONNULL_ARG(1) FUNC_ATTR_PURE
 {
   assert(fname != NULL);
   while (*fname != NUL && !vim_ispathsep(*fname)) {
@@ -183,6 +184,7 @@ char_u *path_next_component(char_u *fname)
  * If there is no head, path is returned.
  */
 char_u *get_past_head(char_u *path)
+    FUNC_ATTR_NONNULL_RET FUNC_ATTR_NONNULL_ARG(1) FUNC_ATTR_PURE
 {
   char_u  *retval;
 
@@ -198,7 +200,7 @@ char_u *get_past_head(char_u *path)
  * Return TRUE if 'c' is a path separator.
  * Note that for MS-Windows this includes the colon.
  */
-int vim_ispathsep(int c)
+int vim_ispathsep(int c) FUNC_ATTR_CONST
 {
 #ifdef UNIX
   return c == '/';          /* UNIX has ':' inside file names */
@@ -214,7 +216,7 @@ int vim_ispathsep(int c)
 /*
  * Like vim_ispathsep(c), but exclude the colon for MS-Windows.
  */
-int vim_ispathsep_nocolon(int c)
+int vim_ispathsep_nocolon(int c) FUNC_ATTR_CONST
 {
   return vim_ispathsep(c)
 #ifdef BACKSLASH_IN_FILENAME
@@ -226,7 +228,7 @@ int vim_ispathsep_nocolon(int c)
 /*
  * return TRUE if 'c' is a path list separator.
  */
-int vim_ispathlistsep(int c)
+int vim_ispathlistsep(int c) FUNC_ATTR_CONST
 {
 #ifdef UNIX
   return c == ':';
@@ -293,7 +295,7 @@ int dir_of_file_exists(char_u *fname)
  * Versions of fnamecmp() and fnamencmp() that handle '/' and '\' equally
  * and deal with 'fileignorecase'.
  */
-int vim_fnamecmp(char_u *x, char_u *y)
+int vim_fnamecmp(char_u *x, char_u *y) FUNC_ATTR_PURE
 {
 #ifdef BACKSLASH_IN_FILENAME
   return vim_fnamencmp(x, y, MAXPATHL);
@@ -304,7 +306,7 @@ int vim_fnamecmp(char_u *x, char_u *y)
 #endif
 }
 
-int vim_fnamencmp(char_u *x, char_u *y, size_t len)
+int vim_fnamencmp(char_u *x, char_u *y, size_t len) FUNC_ATTR_PURE
 {
 #ifdef BACKSLASH_IN_FILENAME
   char_u      *px = x;
@@ -339,7 +341,7 @@ int vim_fnamencmp(char_u *x, char_u *y, size_t len)
  * Only add a '/' or '\\' when 'sep' is TRUE and it is necessary.
  */
 char_u *concat_fnames(char_u *fname1, char_u *fname2, int sep)
-  FUNC_ATTR_NONNULL_RET
+  FUNC_ATTR_NONNULL_RET FUNC_ATTR_NONNULL_ALL FUNC_ATTR_XMALLOC
 {
   char_u *dest = xmalloc(STRLEN(fname1) + STRLEN(fname2) + 3);
 
@@ -371,7 +373,7 @@ FullName_save (
     char_u *fname,
     int force                      /* force expansion, even when it already looks
                                  * like a full path name */
-)
+) FUNC_ATTR_XMALLOC
 {
   char_u      *new_fname = NULL;
 
@@ -397,7 +399,7 @@ FullName_save (
  * Unix style wildcard expansion code.
  * It's here because it's used both for Unix and Mac.
  */
-static int pstrcmp(const void *a, const void *b)
+static int pstrcmp(const void *a, const void *b) FUNC_ATTR_NONNULL_ALL FUNC_ATTR_PURE
 {
   return pathcmp(*(char **)a, *(char **)b, -1);
 }
@@ -888,7 +890,7 @@ static void uniquefy_paths(garray_T *gap, char_u *pattern)
  * "/path/file", "/path/dir/", "/path//dir", "/file"
  *	 ^	       ^	     ^	      ^
  */
-static char_u *gettail_dir(char_u *fname)
+static char_u *gettail_dir(char_u *fname) FUNC_ATTR_PURE
 {
   char_u      *dir_end = fname;
   char_u      *next_dir_end = fname;
@@ -951,7 +953,7 @@ expand_in_path (
  * Return TRUE if "p" contains what looks like an environment variable.
  * Allowing for escaping.
  */
-static int has_env_var(char_u *p)
+static int has_env_var(char_u *p) FUNC_ATTR_PURE
 {
   for (; *p; mb_ptr_adv(p)) {
     if (*p == '\\' && p[1] != NUL)
@@ -969,7 +971,7 @@ static int has_env_var(char_u *p)
  * Return TRUE if "p" contains a special wildcard character.
  * Allowing for escaping.
  */
-static int has_special_wildchar(char_u *p)
+static int has_special_wildchar(char_u *p) FUNC_ATTR_PURE
 {
   for (; *p; mb_ptr_adv(p)) {
     if (*p == '\\' && p[1] != NUL)
@@ -1129,7 +1131,7 @@ gen_expand_wildcards (
 /*
  * Return TRUE if we can expand this backtick thing here.
  */
-static int vim_backtick(char_u *p)
+static int vim_backtick(char_u *p) FUNC_ATTR_PURE
 {
   return *p == '`' && *(p + 1) != NUL && *(p + STRLEN(p) - 1) == '`';
 }
@@ -1144,7 +1146,7 @@ expand_backtick (
     garray_T *gap,
     char_u *pat,
     int flags              /* EW_* flags */
-)
+) FUNC_ATTR_NONNULL_ALL
 {
   char_u      *p;
   char_u      *cmd;
@@ -1200,7 +1202,7 @@ addfile (
     garray_T *gap,
     char_u *f,         /* filename */
     int flags
-)
+) FUNC_ATTR_NONNULL_ALL
 {
   bool isdir;
 
@@ -1480,7 +1482,7 @@ find_file_name_in_path (
  * Also check for ":\\", which MS Internet Explorer accepts, return
  * URL_BACKSLASH.
  */
-int path_is_url(char_u *p)
+int path_is_url(char_u *p) FUNC_ATTR_PURE
 {
   if (STRNCMP(p, "://", (size_t)3) == 0)
     return URL_SLASH;
@@ -1494,7 +1496,7 @@ int path_is_url(char_u *p)
  * Return URL_BACKSLASH for "name:\\".
  * Return zero otherwise.
  */
-int path_with_url(char_u *fname)
+int path_with_url(char_u *fname) FUNC_ATTR_PURE
 {
   char_u *p;
 
@@ -1506,7 +1508,7 @@ int path_with_url(char_u *fname)
 /*
  * Return TRUE if "name" is a full (absolute) path name or URL.
  */
-int vim_isAbsName(char_u *name)
+int vim_isAbsName(char_u *name) FUNC_ATTR_PURE
 {
   return path_with_url(name) != 0 || path_is_absolute_path(name);
 }
@@ -1582,7 +1584,7 @@ char_u *fix_fname(char_u *fname)
  * Takes care of multi-byte characters.
  * "b" must point to the start of the file name
  */
-int after_pathsep(char_u *b, char_u *p)
+int after_pathsep(char_u *b, char_u *p) FUNC_ATTR_PURE
 {
   return p > b && vim_ispathsep(p[-1])
          && (!has_mbyte || (*mb_head_off)(b, p - 1) == 0);
@@ -1592,7 +1594,7 @@ int after_pathsep(char_u *b, char_u *p)
  * Return TRUE if file names "f1" and "f2" are in the same directory.
  * "f1" may be a short name, "f2" must be a full path.
  */
-int same_directory(char_u *f1, char_u *f2)
+int same_directory(char_u *f1, char_u *f2) FUNC_ATTR_PURE
 {
   char_u ffname[MAXPATHL];
   char_u      *t1;
@@ -1615,7 +1617,7 @@ int same_directory(char_u *f1, char_u *f2)
  * If "maxlen" >= 0 compare "p[maxlen]" to "q[maxlen]"
  * Return value like strcmp(p, q), but consider path separators.
  */
-int pathcmp(const char *p, const char *q, int maxlen)
+int pathcmp(const char *p, const char *q, int maxlen) FUNC_ATTR_PURE
 {
   int i;
   int c1, c2;
@@ -1928,6 +1930,7 @@ int path_full_dir_name(char *directory, char *buffer, int len)
 // Append to_append to path with a slash in between.
 // Append to_append to path with a slash in between.
 int append_path(char *path, const char *to_append, int max_len)
+  FUNC_ATTR_NONNULL_ALL
 {
   int current_length = STRLEN(path);
   int to_append_length = STRLEN(to_append);
@@ -1971,6 +1974,7 @@ int append_path(char *path, const char *to_append, int max_len)
 /// @param force Also expand when `fname` is already absolute.
 /// @return `FAIL` for failure, `OK` for success.
 static int path_get_absolute_path(char_u *fname, char_u *buf, int len, int force)
+  FUNC_ATTR_NONNULL_ALL
 {
   char_u *p;
   *buf = NUL;
@@ -2000,7 +2004,7 @@ static int path_get_absolute_path(char_u *fname, char_u *buf, int len, int force
 ///
 /// This just checks if the file name starts with '/' or '~'.
 /// @return `TRUE` if "fname" is absolute.
-int path_is_absolute_path(const char_u *fname)
+int path_is_absolute_path(const char_u *fname) FUNC_ATTR_PURE
 {
   return *fname == '/' || *fname == '~';
 }

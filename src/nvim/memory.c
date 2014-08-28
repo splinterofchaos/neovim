@@ -290,6 +290,7 @@ char *xstpncpy(char *restrict dst, const char *restrict src, size_t maxlen)
 /// @param size Size of destination buffer
 /// @return Length of the source string (i.e.: strlen(src))
 size_t xstrlcpy(char *restrict dst, const char *restrict src, size_t size)
+  FUNC_ATTR_NONNULL_ALL
 {
     size_t ret = strlen(src);
 
