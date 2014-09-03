@@ -1,0 +1,27 @@
+Test getreg:
+
+Spit out some lines and put them in register 'a'.
+  % one<CR>
+  % two<CR>
+  % three<CR>
+  % four<CR>
+  % five<CR>
+  % <CR>
+  % result<CR>
+  > /^one<CR>
+  > "ay3j<CR>
+
+Open a new buffer to put the contents of 'a' in.
+  :vnew
+  :$put =string(getreg('a'))
+  :$put =string(getreg('a', 1, 1))
+
+Result:
+
+  &
+  'one
+  two
+  three
+  four
+  '
+  ['one', 'two', 'three', 'four']
