@@ -1,3 +1,329 @@
+{{{1 let tests
+": type v; value: abc (['abc']), expr: abc (['abc'])
+": type V; value: abc (['abc']), expr: abc (['abc'])
+": type V; value: abc
+ (['abc
+']), expr: abc
+ (['abc
+'])
+=: type v; value: abc (['abc']), expr: "abc" (['"abc"'])
+{{{1 Basic setreg tests
+{{{2 setreg('a', 'abcA', 'c')
+a: type v; value: abcA (['abcA']), expr: abcA (['abcA'])
+==
+=abcA=
+{{{2 setreg('b', 'abcB', 'v')
+b: type v; value: abcB (['abcB']), expr: abcB (['abcB'])
+==
+=abcB=
+{{{2 setreg('c', 'abcC', 'l')
+c: type V; value: abcC (['abcC']), expr: abcC (['abcC'])
+==
+abcC
+==
+{{{2 setreg('d', 'abcD', 'V')
+d: type V; value: abcD (['abcD']), expr: abcD (['abcD'])
+==
+abcD
+==
+{{{2 setreg('e', 'abcE', 'b')
+e: type 4; value: abcE (['abcE']), expr: abcE (['abcE'])
+==
+=abcE=
+{{{2 setreg('f', 'abcF', '')
+f: type 4; value: abcF (['abcF']), expr: abcF (['abcF'])
+==
+=abcF=
+{{{2 setreg('g', 'abcG', 'b10')
+g: type 10; value: abcG (['abcG']), expr: abcG (['abcG'])
+==
+=abcG      =
+{{{2 setreg('h', 'abcH', '10')
+h: type 10; value: abcH (['abcH']), expr: abcH (['abcH'])
+==
+=abcH      =
+{{{2 setreg('I', 'abcI')
+I: type v; value: abcI (['abcI']), expr: abcI (['abcI'])
+==
+=abcI=
+{{{1 Appending single lines with setreg()
+{{{2 setreg('A', 'abcAc', 'c')
+A: type v; value: abcAabcAc (['abcAabcAc']), expr: abcAabcAc (['abcAabcAc'])
+==
+=abcAabcAc=
+{{{2 setreg('A', 'abcAl', 'l')
+A: type V; value: abcAabcAcabcAl (['abcAabcAcabcAl']), expr: abcAabcAcabcAl (['abcAabcAcabcAl'])
+==
+abcAabcAcabcAl
+==
+{{{2 setreg('A', 'abcAc2', 'c')
+A: type v; value: abcAabcAcabcAlabcAc2 (['abcAabcAcabcAl', 'abcAc2']), expr: abcAabcAcabcAlabcAc2 (['abcAabcAcabcAl', 'abcAc2'])
+==
+=abcAabcAcabcAl
+abcAc2=
+{{{2 setreg('b', 'abcBc', 'ca')
+b: type v; value: abcBabcBc (['abcBabcBc']), expr: abcBabcBc (['abcBabcBc'])
+==
+=abcBabcBc=
+{{{2 setreg('b', 'abcBb', 'ba')
+b: type 5; value: abcBabcBcabcBb (['abcBabcBcabcBb']), expr: abcBabcBcabcBb (['abcBabcBcabcBb'])
+==
+=abcBabcBcabcBb=
+{{{2 setreg('b', 'abcBc2', 'ca')
+b: type v; value: abcBabcBcabcBbabcBc2 (['abcBabcBcabcBb', 'abcBc2']), expr: abcBabcBcabcBbabcBc2 (['abcBabcBcabcBb', 'abcBc2'])
+==
+=abcBabcBcabcBb
+abcBc2=
+{{{2 setreg('b', 'abcBb2', 'b50a')
+b: type 50; value: abcBabcBcabcBbabcBc2abcBb2 (['abcBabcBcabcBb', 'abcBc2abcBb2']), expr: abcBabcBcabcBbabcBc2abcBb2 (['abcBabcBcabcBb', 'abcBc2abcBb2'])
+==
+=abcBabcBcabcBb                                    =
+ abcBc2abcBb2
+{{{2 setreg('C', 'abcCl', 'l')
+C: type V; value: abcCabcCl (['abcC', 'abcCl']), expr: abcCabcCl (['abcC', 'abcCl'])
+==
+abcC
+abcCl
+==
+{{{2 setreg('C', 'abcCc', 'c')
+C: type v; value: abcCabcClabcCc (['abcC', 'abcCl', 'abcCc']), expr: abcCabcClabcCc (['abcC', 'abcCl', 'abcCc'])
+==
+=abcC
+abcCl
+abcCc=
+{{{2 setreg('D', 'abcDb', 'b')
+D: type 5; value: abcDabcDb (['abcD', 'abcDb']), expr: abcDabcDb (['abcD', 'abcDb'])
+==
+=abcD =
+ abcDb
+{{{2 setreg('E', 'abcEb', 'b')
+E: type 5; value: abcEabcEb (['abcE', 'abcEb']), expr: abcEabcEb (['abcE', 'abcEb'])
+==
+=abcE =
+ abcEb
+{{{2 setreg('E', 'abcEl', 'l')
+E: type V; value: abcEabcEbabcEl (['abcE', 'abcEb', 'abcEl']), expr: abcEabcEbabcEl (['abcE', 'abcEb', 'abcEl'])
+==
+abcE
+abcEb
+abcEl
+==
+{{{2 setreg('F', 'abcFc', 'c')
+F: type v; value: abcFabcFc (['abcF', 'abcFc']), expr: abcFabcFc (['abcF', 'abcFc'])
+==
+=abcF
+abcFc=
+{{{1 Appending NL with setreg()
+{{{2 setreg('A', '')
+A: type V; value: abcA2 (['abcA2']), expr: abcA2 (['abcA2'])
+==
+abcA2
+==
+{{{2 setreg('B', '', 'c')
+B: type v; value: abcB2 (['abcB2', '']), expr: abcB2 (['abcB2', ''])
+==
+=abcB2
+=
+{{{2 setreg('C', '')
+C: type V; value: abcC2 (['abcC2', '']), expr: abcC2 (['abcC2', ''])
+==
+abcC2
+
+==
+{{{2 setreg('D', '', 'l')
+D: type V; value: abcD2 (['abcD2', '']), expr: abcD2 (['abcD2', ''])
+==
+abcD2
+
+==
+{{{2 setreg('E', '')
+E: type V; value: abcE2 (['abcE2', '']), expr: abcE2 (['abcE2', ''])
+==
+abcE2
+
+==
+{{{2 setreg('F', '', 'b')
+F: type 0; value: abcF2 (['abcF2', '']), expr: abcF2 (['abcF2', ''])
+==
+=abcF2=
+ 
+{{{1 Setting lists with setreg()
+{{{2 setreg('a', ['abcA3'], 'c')
+a: type v; value: abcA3 (['abcA3']), expr: abcA3 (['abcA3'])
+==
+=abcA3=
+{{{2 setreg('b', ['abcB3'], 'l')
+b: type V; value: abcB3 (['abcB3']), expr: abcB3 (['abcB3'])
+==
+abcB3
+==
+{{{2 setreg('c', ['abcC3'], 'b')
+c: type 5; value: abcC3 (['abcC3']), expr: abcC3 (['abcC3'])
+==
+=abcC3=
+{{{2 setreg('d', ['abcD3'])
+d: type V; value: abcD3 (['abcD3']), expr: abcD3 (['abcD3'])
+==
+abcD3
+==
+{{{1 Appending lists with setreg()
+{{{2 setreg('A', ['abcA3c'], 'c')
+A: type v; value: abcA3abcA3c (['abcA3', 'abcA3c']), expr: abcA3abcA3c (['abcA3', 'abcA3c'])
+==
+=abcA3
+abcA3c=
+{{{2 setreg('b', ['abcB3l'], 'la')
+b: type V; value: abcB3abcB3l (['abcB3', 'abcB3l']), expr: abcB3abcB3l (['abcB3', 'abcB3l'])
+==
+abcB3
+abcB3l
+==
+{{{2 setreg('C', ['abcC3b'], 'lb')
+C: type 6; value: abcC3abcC3b (['abcC3', 'abcC3b']), expr: abcC3abcC3b (['abcC3', 'abcC3b'])
+==
+=abcC3 =
+ abcC3b
+{{{2 setreg('D', ['abcD32'])
+D: type V; value: abcD3abcD32 (['abcD3', 'abcD32']), expr: abcD3abcD32 (['abcD3', 'abcD32'])
+==
+abcD3
+abcD32
+==
+{{{2 setreg('A', ['abcA32'])
+A: type V; value: abcA3abcA3cabcA32 (['abcA3', 'abcA3c', 'abcA32']), expr: abcA3abcA3cabcA32 (['abcA3', 'abcA3c', 'abcA32'])
+==
+abcA3
+abcA3c
+abcA32
+==
+{{{2 setreg('B', ['abcB3c'], 'c')
+B: type v; value: abcB3abcB3labcB3c (['abcB3', 'abcB3l', 'abcB3c']), expr: abcB3abcB3labcB3c (['abcB3', 'abcB3l', 'abcB3c'])
+==
+=abcB3
+abcB3l
+abcB3c=
+{{{2 setreg('C', ['abcC3l'], 'l')
+C: type V; value: abcC3abcC3babcC3l (['abcC3', 'abcC3b', 'abcC3l']), expr: abcC3abcC3babcC3l (['abcC3', 'abcC3b', 'abcC3l'])
+==
+abcC3
+abcC3b
+abcC3l
+==
+{{{2 setreg('D', ['abcD3b'], 'b')
+D: type 6; value: abcD3abcD32abcD3b (['abcD3', 'abcD32', 'abcD3b']), expr: abcD3abcD32abcD3b (['abcD3', 'abcD32', 'abcD3b'])
+==
+=abcD3 =
+ abcD32
+ abcD3b
+{{{1 Appending lists with NL with setreg()
+{{{2 setreg('A', ['', 'abcA3l2'], 'l')
+A: type V; value: abcA3abcA3cabcA32abcA3l2 (['abcA3', 'abcA3c', 'abcA32', '', 'abcA3l2']), expr: abcA3abcA3cabcA32abcA3l2 (['abcA3', 'abcA3c', 'abcA32', '', 'abcA3l2'])
+==
+abcA3
+abcA3c
+abcA32
+
+abcA3l2
+==
+{{{2 setreg('B', ['', 'abcB3c2'], 'c')
+B: type v; value: abcB3abcB3labcB3cabcB3c2 (['abcB3', 'abcB3l', 'abcB3c', '', 'abcB3c2']), expr: abcB3abcB3labcB3cabcB3c2 (['abcB3', 'abcB3l', 'abcB3c', '', 'abcB3c2'])
+==
+=abcB3
+abcB3l
+abcB3c
+
+abcB3c2=
+{{{2 setreg('C', ['', 'abcC3b2'], 'b')
+C: type 7; value: abcC3abcC3babcC3labcC3b2 (['abcC3', 'abcC3b', 'abcC3l', '', 'abcC3b2']), expr: abcC3abcC3babcC3labcC3b2 (['abcC3', 'abcC3b', 'abcC3l', '', 'abcC3b2'])
+==
+=abcC3  =
+ abcC3b
+ abcC3l
+ 
+ abcC3b2
+{{{2 setreg('D', ['', 'abcD3b50'], 'b50')
+D: type 50; value: abcD3abcD32abcD3babcD3b50 (['abcD3', 'abcD32', 'abcD3b', '', 'abcD3b50']), expr: abcD3abcD32abcD3babcD3b50 (['abcD3', 'abcD32', 'abcD3b', '', 'abcD3b50'])
+==
+=abcD3                                             =
+ abcD32
+ abcD3b
+ 
+ abcD3b50
+{{{1 Setting lists with NLs with setreg()
+{{{2 setreg('a', ['abcA4-0', '', 'abcA4-2', 'abcA4-3', 'abcA4-4abcA4-4-2'])
+a: type V; value: abcA4-0abcA4-2abcA4-3abcA4-4abcA4-4-2 (['abcA4-0', '', 'abcA4-2', 'abcA4-3', 'abcA4-4abcA4-4-2']), expr: abcA4-0abcA4-2abcA4-3abcA4-4abcA4-4-2 (['abcA4-0', '', 'abcA4-2', 'abcA4-3', 'abcA4-4abcA4-4-2'])
+==
+abcA4-0
+
+abcA4-2
+abcA4-3
+abcA4-4abcA4-4-2
+==
+{{{2 setreg('b', ['abcB4c-0', '', 'abcB4c-2', 'abcB4c-3', 'abcB4c-4abcB4c-4-2'], 'c')
+b: type v; value: abcB4c-0abcB4c-2abcB4c-3abcB4c-4abcB4c-4-2 (['abcB4c-0', '', 'abcB4c-2', 'abcB4c-3', 'abcB4c-4abcB4c-4-2']), expr: abcB4c-0abcB4c-2abcB4c-3abcB4c-4abcB4c-4-2 (['abcB4c-0', '', 'abcB4c-2', 'abcB4c-3', 'abcB4c-4abcB4c-4-2'])
+==
+=abcB4c-0
+
+abcB4c-2
+abcB4c-3
+abcB4c-4abcB4c-4-2=
+{{{2 setreg('c', ['abcC4l-0', '', 'abcC4l-2', 'abcC4l-3', 'abcC4l-4abcC4l-4-2'], 'l')
+c: type V; value: abcC4l-0abcC4l-2abcC4l-3abcC4l-4abcC4l-4-2 (['abcC4l-0', '', 'abcC4l-2', 'abcC4l-3', 'abcC4l-4abcC4l-4-2']), expr: abcC4l-0abcC4l-2abcC4l-3abcC4l-4abcC4l-4-2 (['abcC4l-0', '', 'abcC4l-2', 'abcC4l-3', 'abcC4l-4abcC4l-4-2'])
+==
+abcC4l-0
+
+abcC4l-2
+abcC4l-3
+abcC4l-4abcC4l-4-2
+==
+{{{2 setreg('d', ['abcD4b-0', '', 'abcD4b-2', 'abcD4b-3', 'abcD4b-4abcD4b-4-2'], 'b')
+d: type 19; value: abcD4b-0abcD4b-2abcD4b-3abcD4b-4abcD4b-4-2 (['abcD4b-0', '', 'abcD4b-2', 'abcD4b-3', 'abcD4b-4abcD4b-4-2']), expr: abcD4b-0abcD4b-2abcD4b-3abcD4b-4abcD4b-4-2 (['abcD4b-0', '', 'abcD4b-2', 'abcD4b-3', 'abcD4b-4abcD4b-4-2'])
+==
+=abcD4b-0           =
+ 
+ abcD4b-2
+ abcD4b-3
+ abcD4b-4abcD4b-4-2
+{{{2 setreg('e', ['abcE4b10-0', '', 'abcE4b10-2', 'abcE4b10-3', 'abcE4b10-4abcE4b10-4-2'], 'b10')
+e: type 10; value: abcE4b10-0abcE4b10-2abcE4b10-3abcE4b10-4abcE4b10-4-2 (['abcE4b10-0', '', 'abcE4b10-2', 'abcE4b10-3', 'abcE4b10-4abcE4b10-4-2']), expr: abcE4b10-0abcE4b10-2abcE4b10-3abcE4b10-4abcE4b10-4-2 (['abcE4b10-0', '', 'abcE4b10-2', 'abcE4b10-3', 'abcE4b10-4abcE4b10-4-2'])
+==
+=abcE4b10-0=
+ 
+ abcE4b10-2
+ abcE4b10-3
+ abcE4b10-4abcE4b10-4-2
+{{{1 Search and expressions
+{{{2 setreg('/', ['abc/'])
+/: type v; value: abc/ (['abc/']), expr: abc/ (['abc/'])
+==
+=abc/=
+{{{2 setreg('/', ['abc/'])
+/: type v; value: abc/ (['abc/']), expr: abc/ (['abc/'])
+==
+=abc/=
+{{{2 setreg('=', ['"abc/"'])
+=: type v; value: abc/ (['abc/']), expr: "abc/" (['"abc/"'])
+{{{2 setreg('=', ['"abc/"'])
+=: type v; value: abc/ (['abc/']), expr: "abc/" (['"abc/"'])
+{{{1 Errors
+Executing call setreg()
+Vim(call):E119: Not enough arguments for function: setreg
+Executing call setreg(1)
+Vim(call):E119: Not enough arguments for function: setreg
+Executing call setreg(1, 2, 3, 4)
+Vim(call):E118: Too many arguments for function: setreg
+Executing call setreg([], 2)
+Vim(call):E730: using List as a String
+Executing call setreg(1, {})
+Vim(call):E731: using Dictionary as a String
+Executing call setreg(1, 2, [])
+Vim(call):E730: using List as a String
+Executing call setreg("/", [1, 2])
+Vim(call):E883: search pattern and expression register may not contain two or more lines
+Executing call setreg("=", [1, 2])
+Vim(call):E883: search pattern and expression register may not contain two or more lines
+Executing call setreg(1, ["", "", [], ""])
+Vim(call):E730: using List as a String
 Vim(function):E128: Function name must start with a capital or "s:": g:test()
 Vim(function):E128: Function name must start with a capital or "s:": test2() "#
 Vim(function):E128: Function name must start with a capital or "s:": b:test()
