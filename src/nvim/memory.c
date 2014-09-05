@@ -291,6 +291,36 @@ size_t memcnt(const void *data, int c, size_t len)
   return cnt;
 }
 
+/// Replaces every instance of `c` with `x`.
+///
+/// @warning Will read past `str + strlen(str)` if `c == NUL`.
+///
+/// @param str A NUL-terminated string.
+/// @param c   The unwanted byte.
+/// @param x   The replacement.
+void strchrsub(char *str, int c, int x)
+  FUNC_ATTR_NONNULL_ALL
+{
+  while ((str = strchr(str, c))) {
+    *str++ = (char)x;
+  }
+}
+
+/// Replaces every instance of `c` with `x`.
+///
+/// @param data An object in memory. May contain NULs.
+/// @param c    The unwanted byte.
+/// @param x    The replacement.
+/// @param len  The length of data.
+void memchrsub(void *data, int c, int x, size_t len)
+  FUNC_ATTR_NONNULL_ALL
+{
+  uint8_t *p = data, *end = (uint8_t *)data + len;
+  while ((p = memchr(p, c, (size_t)(end - p)))) {
+    *p++ = (uint8_t)x;
+  }
+}
+
 /// The xstpcpy() function shall copy the string pointed to by src (including
 /// the terminating NUL character) into the array pointed to by dst.
 ///
