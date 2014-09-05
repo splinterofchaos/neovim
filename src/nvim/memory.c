@@ -222,6 +222,39 @@ void *xmemdupz(const void *data, size_t len)
   return memcpy(xmallocz(len), data, len);
 }
 
+/// A version of strchr() that returns a pointer to NUL if it doesn't find `c`.
+///
+/// From glibc 2.1.1.
+///
+/// @param str The string to search.
+/// @param c   The char to look for.
+/// @returns a pointer to the first instance of `c`, or NUL if not found.
+char *xstrchrnul(const char *str, int c)
+  FUNC_ATTR_NONNULL_RET FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_NONNULL_ALL
+  FUNC_ATTR_PURE
+{
+  char *p = strchr(str,c);
+  return p ? p : (char *)(str + STRLEN(str));
+}
+
+/// A version of memchr() that returns a pointer one past the end
+/// if it doesn't find `c`.
+///
+/// From the linux kernel API.
+///
+/// @param addr The address of the memory object.
+/// @param c    The char to look for.
+/// @param size The size of the memory object.
+/// @returns a pointer to the first instance of `c`, or one past the end if not
+///          found.
+void *xmemscan(const void *addr, int c, size_t size)
+  FUNC_ATTR_NONNULL_RET FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_NONNULL_ALL
+  FUNC_ATTR_PURE
+{
+  char *p = memchr(addr, c, size);
+  return p ? p : (char *)addr + size;
+}
+
 /// Counts the number of occurrences of `c` in `str`.
 ///
 /// @warning Unsafe if `c == NUL`.
