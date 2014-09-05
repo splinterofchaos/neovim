@@ -1,0 +1,15 @@
+Test exepath()
+
+  :put =string(exepath('ls'))
+  &
+  '/bin/ls'
+
+
+
+exepath() on a non-valid path will return an empty string.
+
+  :put =string(exepath(0))
+  :put =string(exepath(''))
+  &
+  ''
+  ''
