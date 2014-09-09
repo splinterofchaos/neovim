@@ -15091,15 +15091,19 @@ var2fpos (
   return NULL;
 }
 
-/*
- * Convert list in "arg" into a position and optional file number.
- * When "fnump" is NULL there is no file number, only 3 items.
- * Note that the column is passed on as-is, the caller may want to decrement
- * it to use 1 for the first column.
- * Return FAIL when conversion is not possible, doesn't check the position for
- * validity.
- */
-static int list2fpos(typval_T *arg, pos_T *posp, int *fnump)
+/// Converts list in "arg" into a position and optional file number.
+///
+/// @remark the column is passed on as-is, the caller may want to decrement
+///         it to use 1 for the first column.
+///
+/// @param[in]  arg   The list as a typeval. Returns `false` if not a list.
+/// @param[out] posp  The position in the file.
+/// @param[out] fnump The file number in `arg`. When NULL, there is no file
+///                   number, only 3 items.
+///
+/// @returns false when conversion is not possible, doesn't check the position
+///          for validity.
+static bool list2fpos(typval_T *arg, pos_T *posp, int *fnump)
 {
   list_T      *l = arg->vval.v_list;
   long i = 0;
@@ -15111,12 +15115,12 @@ static int list2fpos(typval_T *arg, pos_T *posp, int *fnump)
       || l == NULL
       || l->lv_len < (fnump == NULL ? 2 : 3)
       || l->lv_len > (fnump == NULL ? 3 : 4))
-    return FAIL;
+    return false;
 
   if (fnump != NULL) {
     n = list_find_nr(l, i++, NULL);     /* fnum */
     if (n < 0)
-      return FAIL;
+      return false;
     if (n == 0)
       n = curbuf->b_fnum;               /* current buffer */
     *fnump = n;
@@ -15124,12 +15128,12 @@ static int list2fpos(typval_T *arg, pos_T *posp, int *fnump)
 
   n = list_find_nr(l, i++, NULL);       /* lnum */
   if (n < 0)
-    return FAIL;
+    return false;
   posp->lnum = n;
 
   n = list_find_nr(l, i++, NULL);       /* col */
   if (n < 0)
-    return FAIL;
+    return false;
   posp->col = n;
 
   n = list_find_nr(l, i, NULL);
@@ -15138,7 +15142,7 @@ static int list2fpos(typval_T *arg, pos_T *posp, int *fnump)
   else
     posp->coladd = n;
 
-  return OK;
+  return true;
 }
 
 /*
