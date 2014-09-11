@@ -7914,12 +7914,16 @@ static void f_cursor(typval_T *argvars, typval_T *rettv)
   rettv->vval.v_number = -1;
   if (argvars[1].v_type == VAR_UNKNOWN) {
     pos_T pos;
-
-    if (list2fpos(argvars, &pos, NULL) == FAIL)
+    colnr_T curswant = -1;
+    if (!list2fpos(argvars, &pos, NULL, &curswant)) {
       return;
+    }
     line = pos.lnum;
     col = pos.col;
     coladd = pos.coladd;
+    if (curswant >= 0) {
+      curwin->w_curswant = curswant - 1;
+    }
   } else {
     line = get_tv_lnum(argvars);
     col = get_tv_number_chk(&argvars[1], NULL);
@@ -9429,12 +9433,10 @@ static void f_getpid(typval_T *argvars, typval_T *rettv)
  */
 static void f_getpos(typval_T *argvars, typval_T *rettv)
 {
-  pos_T *fp;
-  list_T *l;
   int fnum = -1;
+  list_T *l = rettv_list_alloc(rettv);
+  pos_T *fp = var2fpos(&argvars[0], TRUE, &fnum);
 
-  l = rettv_list_alloc(rettv);
-  fp = var2fpos(&argvars[0], TRUE, &fnum);
   list_append_number(l, (fnum != -1) ? (varnumber_T)fnum : (varnumber_T)0);
   list_append_number(l, (fp != NULL) ? (varnumber_T)fp->lnum : (varnumber_T)0);
   list_append_number(l,
@@ -9443,6 +9445,9 @@ static void f_getpos(typval_T *argvars, typval_T *rettv)
                        : (varnumber_T)0);
   list_append_number(l,
                      (fp != NULL) ? (varnumber_T)fp->coladd : (varnumber_T)0);
+  if (fp == &curwin->w_cursor) {
+    list_append_number(l, (varnumber_T)curwin->w_curswant + 1);
+  }
 }
 
 /*
@@ -13088,24 +13093,28 @@ static void f_setmatches(typval_T *argvars, typval_T *rettv)
  */
 static void f_setpos(typval_T *argvars, typval_T *rettv)
 {
-  pos_T pos;
-  int fnum;
-  char_u      *name;
-
   rettv->vval.v_number = -1;
-  name = get_tv_string_chk(argvars);
+  char_u *name = get_tv_string_chk(argvars);
   if (name != NULL) {
-    if (list2fpos(&argvars[1], &pos, &fnum) == OK) {
-      if (--pos.col < 0)
+    int fnum;
+    pos_T pos;
+    colnr_T curswant = -1;
+    if (list2fpos(&argvars[1], &pos, &fnum, &curswant)) {
+      if (--pos.col < 0) {
         pos.col = 0;
+      }
       if (name[0] == '.' && name[1] == NUL) {
-        /* set cursor */
+        // set cursor
         if (fnum == curbuf->b_fnum) {
           curwin->w_cursor = pos;
+          if (curswant >= 0) {
+            curwin->w_curswant = curswant - 1;
+          }
           check_cursor();
           rettv->vval.v_number = 0;
-        } else
+        } else {
           EMSG(_(e_invarg));
+        }
       } else if (name[0] == '\'' && name[1] != NUL && name[2] == NUL)   {
         /* set mark */
         if (setmark_pos(name[1], &pos, fnum) == OK)
@@ -15099,48 +15108,57 @@ var2fpos (
 /// @param[in]  arg   The list as a typeval. Returns `false` if not a list.
 /// @param[out] posp  The position in the file.
 /// @param[out] fnump The file number in `arg`. When NULL, there is no file
-///                   number, only 3 items.
+///                   number.
+/// @param[out] curswantp The visual column of `posp`.
 ///
 /// @returns false when conversion is not possible, doesn't check the position
 ///          for validity.
-static bool list2fpos(typval_T *arg, pos_T *posp, int *fnump)
+static bool list2fpos(typval_T *arg, pos_T *posp, int *fnump, colnr_T *curswantp)
 {
   list_T      *l = arg->vval.v_list;
   long i = 0;
-  long n;
 
-  /* List must be: [fnum, lnum, col, coladd], where "fnum" is only there
-   * when "fnump" isn't NULL and "coladd" is optional. */
+  // List must be: [fnum, lnum, col, coladd, curswant], where "fnum" is only
+  // there when "fnump" isn't NULL; "coladd" and "curswant" are optional.
   if (arg->v_type != VAR_LIST
       || l == NULL
       || l->lv_len < (fnump == NULL ? 2 : 3)
-      || l->lv_len > (fnump == NULL ? 3 : 4))
+      || l->lv_len > (fnump == NULL ? 4 : 5)) {
     return false;
-
-  if (fnump != NULL) {
-    n = list_find_nr(l, i++, NULL);     /* fnum */
-    if (n < 0)
-      return false;
-    if (n == 0)
-      n = curbuf->b_fnum;               /* current buffer */
-    *fnump = n;
   }
 
-  n = list_find_nr(l, i++, NULL);       /* lnum */
-  if (n < 0)
-    return false;
-  posp->lnum = n;
+  if (fnump != NULL) {
+    colnr_T fnum = list_find_nr(l, i++, NULL);
+    if (fnum < 0) {
+      return false;
+    } else if (fnum == 0) {
+      fnum = curbuf->b_fnum;
+    }
+    *fnump = fnum;
+  }
 
-  n = list_find_nr(l, i++, NULL);       /* col */
-  if (n < 0)
+  linenr_T lnum = list_find_nr(l, i++, NULL);
+  if (lnum < 0) {
     return false;
-  posp->col = n;
+  }
+  posp->lnum = lnum;
 
-  n = list_find_nr(l, i, NULL);
-  if (n < 0)
+  colnr_T col = list_find_nr(l, i++, NULL);
+  if (col < 0) {
+    return false;
+  }
+  posp->col = col;
+
+  colnr_T coladd = list_find_nr(l, i, NULL);
+  if (coladd < 0) {
     posp->coladd = 0;
-  else
-    posp->coladd = n;
+  } else {
+    posp->coladd = coladd;
+  }
+
+  if (curswantp) {
+    *curswantp = list_find_nr(l, i + 1, NULL);
+  }
 
   return true;
 }
