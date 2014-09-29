@@ -2249,53 +2249,26 @@ buf_write (
   int dobackup;
   char_u          *ffname;
   char_u          *wfname = NULL;       /* name of file to write to */
-  char_u          *s;
   char_u          *ptr;
-  char_u c;
-  int len;
-  linenr_T lnum;
-  long nchars;
   char_u          *errmsg = NULL;
   int errmsg_allocated = FALSE;
   char_u          *errnum = NULL;
-  char_u          *buffer;
-  char_u smallbuf[SMBUFSIZE];
-  char_u          *backup_ext;
-  int bufsize;
-  long perm;                                /* file permissions */
   int retval = OK;
-  int newfile = FALSE;                      /* TRUE if file doesn't exist yet */
   int msg_save = msg_scroll;
-  int overwriting;                          /* TRUE if writing over original */
-  int no_eol = FALSE;                       /* no end-of-line written */
   int device = FALSE;                       /* writing to a device */
   int prev_got_int = got_int;
-  bool file_readonly = false;               /* overwritten file is read-only */
   static char     *err_readonly =
     "is read-only (cannot override: \"W\" in 'cpoptions')";
-#if defined(UNIX)
-  int made_writable = FALSE;                /* 'w' bit has been set */
-#endif
   /* writing everything */
-  int whole = (start == 1 && end == buf->b_ml.ml_line_count);
-  linenr_T old_line_count = buf->b_ml.ml_line_count;
-  int attr;
-  int fileformat;
-  int write_bin;
   struct bw_info write_info;            /* info for buf_write_bytes() */
-  int converted = FALSE;
-  int notconverted = FALSE;
-  char_u          *fenc;                /* effective 'fileencoding' */
-  char_u          *fenc_tofree = NULL;   /* allocated "fenc" */
 #ifdef HAS_BW_FLAGS
   int wb_flags = 0;
 #endif
+  char_u *fenc_tofree = NULL;
 #ifdef HAVE_ACL
-  vim_acl_T acl = NULL;                 /* ACL copied from original file to
-                                           backup or new file */
+   //For systems that support ACL: get the ACL from the original file.
+  vim_acl_T acl = NULL;
 #endif
-  int write_undo_file = FALSE;
-  context_sha256_T sha_ctx;
 
   if (fname == NULL || *fname == NUL)   /* safety check */
     return FAIL;
@@ -2339,6 +2312,7 @@ buf_write (
    * Don't do this when appending.
    * Only do this when 'cpoptions' contains the 'F' flag.
    */
+  bool whole = (start == 1 && end == buf->b_ml.ml_line_count);
   if (buf->b_ffname == NULL
       && reset_changed
       && whole
@@ -2365,10 +2339,9 @@ buf_write (
   fname = sfname;
 #endif
 
-  if (buf->b_ffname != NULL && fnamecmp(ffname, buf->b_ffname) == 0)
-    overwriting = TRUE;
-  else
-    overwriting = FALSE;
+  bool overwriting;                         // true if writing over original
+  overwriting = (buf->b_ffname != NULL
+                 && fnamecmp(ffname, buf->b_ffname) == 0);
 
   if (exiting)
     settmode(TMODE_COOK);           /* when exiting allow typeahead now */
@@ -2392,6 +2365,7 @@ buf_write (
     int did_cmd = FALSE;
     int nofile_err = FALSE;
     int empty_memline = (buf->b_ml.ml_mfp == NULL);
+    linenr_T old_line_count = buf->b_ml.ml_line_count;
 
     /*
      * Apply PRE autocommands.
@@ -2555,18 +2529,21 @@ buf_write (
         (char_u *)"", 0);               /* show that we are busy */
   msg_scroll = FALSE;               /* always overwrite the file message now */
 
-  buffer = verbose_try_malloc(BUFSIZE);
+  char_u *buffer = verbose_try_malloc(BUFSIZE);
   // can't allocate big buffer, use small one (to be able to write when out of
   // memory)
+  char_u smallbuf[SMBUFSIZE];
+  size_t bufsize;
   if (buffer == NULL) {
     buffer = smallbuf;
     bufsize = SMBUFSIZE;
   } else
     bufsize = BUFSIZE;
+  
+  bool newfile = false;                     // TRUE if file doesn't exist yet
 
-  /*
-   * Get information about original file (if there is one).
-   */
+  // Get information about original file (if there is one).
+  int64_t perm;                             // file permissions
 #if defined(UNIX)
   perm = -1;
   FileInfo file_info_old;
@@ -2596,7 +2573,7 @@ buf_write (
       /*
        * Check for a writable device name.
        */
-  c = mch_nodetype(fname);
+  char_u c = mch_nodetype(fname);
   if (c == NODE_OTHER) {
     errnum = (char_u *)"E503: ";
     errmsg = (char_u *)_("is not a file or writable device");
@@ -2621,6 +2598,12 @@ buf_write (
 
   }
 #endif /* !UNIX */
+
+#ifdef HAVE_ACL
+  if (!newfile) {
+    acl = mch_get_acl(fname);
+  }
+#endif
 
   bool file_readonly = false;               // overwritten file is read-only
   if (!device && !newfile) {
@@ -2650,14 +2633,6 @@ buf_write (
         goto fail;
     }
   }
-
-#ifdef HAVE_ACL
-  /*
-   * For systems that support ACL: get the ACL from the original file.
-   */
-  if (!newfile)
-    acl = mch_get_acl(fname);
-#endif
 
   /*
    * If 'backupskip' is not empty, don't make a backup for some files.
@@ -2766,11 +2741,8 @@ buf_write (
 # endif
     }
 
-    /* make sure we have a valid backup extension to use */
-    if (*p_bex == NUL)
-      backup_ext = (char_u *)".bak";
-    else
-      backup_ext = p_bex;
+    // make sure we have a valid backup extension to use
+    char_u *backup_ext = (*p_bex == NUL) ? (char_u *) ".bak" : p_bex;
 
     if (backup_copy && (fd = os_open((char *)fname, O_RDONLY, 0)) >= 0) {
       int bfd;
@@ -3038,13 +3010,14 @@ nobackup:
   }
 
 #if defined(UNIX)
-  /* When using ":w!" and the file was read-only: make it writable */
+  bool made_writable = false;               // 'w' bit has been set
+  // When using ":w!" and the file was read-only: make it writable
   if (forceit && perm >= 0 && !(perm & 0200)
       && file_info_old.stat.st_uid == getuid()
       && vim_strchr(p_cpo, CPO_FWRITE) == NULL) {
     perm |= 0200;
     (void)os_setperm(fname, perm);
-    made_writable = TRUE;
+    made_writable = true;
   }
 #endif
 
@@ -3094,7 +3067,7 @@ nobackup:
   /*
    * Check if the file needs to be converted.
    */
-  converted = need_conversion(fenc);
+  bool converted = need_conversion(fenc);
 
   /*
    * Check if UTF-8 to UCS-2/4 or Latin1 conversion needs to be done.  Or
@@ -3150,6 +3123,7 @@ nobackup:
       }
     }
   }
+  bool notconverted = false;
   if (converted && wb_flags == 0
 #  ifdef USE_ICONV
       && write_info.bw_iconv_fd == (iconv_t)-1
@@ -3161,7 +3135,7 @@ nobackup:
           "E213: Cannot convert (add ! to write without conversion)");
       goto restore_backup;
     }
-    notconverted = TRUE;
+    notconverted = true;
   }
 
   /*
@@ -3262,13 +3236,11 @@ restore_backup:
 
   write_info.bw_fd = fd;
   write_info.bw_buf = buffer;
-  nchars = 0;
+  long nchars = 0;
 
-  /* use "++bin", "++nobin" or 'binary' */
-  if (eap != NULL && eap->force_bin != 0)
-    write_bin = (eap->force_bin == FORCE_BIN);
-  else
-    write_bin = buf->b_p_bin;
+  // use "++bin", "++nobin" or 'binary'
+  bool write_bin = (eap != NULL && eap->force_bin != 0) ?
+    (eap->force_bin == FORCE_BIN) : buf->b_p_bin;
 
   /*
    * Skip the BOM when appending and the file already existed, the BOM 
@@ -3287,19 +3259,23 @@ restore_backup:
   }
   write_info.bw_start_lnum = start;
 
-  write_undo_file = (buf->b_p_udf && overwriting && !append
-                     && !filtering && reset_changed);
+  bool write_undo_file = (buf->b_p_udf && overwriting && !append
+                          && !filtering && reset_changed);
+  context_sha256_T sha_ctx;
   if (write_undo_file)
     /* Prepare for computing the hash value of the text. */
     sha256_start(&sha_ctx);
+
+  bool no_eol = false;                      // no end-of-line written
 
   write_info.bw_len = bufsize;
 #ifdef HAS_BW_FLAGS
   write_info.bw_flags = wb_flags;
 #endif
-  fileformat = get_fileformat_force(buf, eap);
-  s = buffer;
-  len = 0;
+  int fileformat = get_fileformat_force(buf, eap);
+  char_u *s = buffer;
+  size_t len = 0;
+  linenr_T lnum;
   for (lnum = start; lnum <= end; ++lnum) {
     /*
      * The next while loop is done once for each character written.
@@ -3308,6 +3284,7 @@ restore_backup:
     ptr = ml_get_buf(buf, lnum, FALSE) - 1;
     if (write_undo_file)
       sha256_update(&sha_ctx, ptr + 1, (uint32_t)(STRLEN(ptr + 1) + 1));
+    char_u c;
     while ((c = *++ptr) != NUL) {
       if (c == NL)
         *s = NUL;                       /* replace newlines with NULs */
@@ -3526,35 +3503,36 @@ restore_backup:
 #endif
   if (!filtering) {
     msg_add_fname(buf, fname);          /* put fname in IObuff with quotes */
-    c = FALSE;
+    bool insert_space = false;
     if (write_info.bw_conv_error) {
       STRCAT(IObuff, _(" CONVERSION ERROR"));
-      c = TRUE;
-      if (write_info.bw_conv_error_lnum != 0)
+      insert_space = true;
+      if (write_info.bw_conv_error_lnum != 0) {
         vim_snprintf_add((char *)IObuff, IOSIZE, _(" in line %" PRId64 ";"),
             (int64_t)write_info.bw_conv_error_lnum);
+      }
     } else if (notconverted) {
       STRCAT(IObuff, _("[NOT converted]"));
-      c = TRUE;
+      insert_space = true;
     } else if (converted) {
       STRCAT(IObuff, _("[converted]"));
-      c = TRUE;
+      insert_space = true;
     }
     if (device) {
       STRCAT(IObuff, _("[Device]"));
-      c = TRUE;
+      insert_space = true;
     } else if (newfile) {
       STRCAT(IObuff, shortmess(SHM_NEW) ? _("[New]") : _("[New File]"));
-      c = TRUE;
+      insert_space = true;
     }
     if (no_eol) {
       msg_add_eol();
-      c = TRUE;
+      insert_space = true;
     }
     /* may add [unix/dos/mac] */
     if (msg_add_fileformat(fileformat))
-      c = TRUE;
-    msg_add_lines(c, (long)lnum, nchars);       /* add line/char count */
+      insert_space = true;
+    msg_add_lines(insert_space, (long)lnum, nchars);       /* add line/char count */
     if (!shortmess(SHM_WRITE)) {
       if (append)
         STRCAT(IObuff, shortmess(SHM_WRI) ? _(" [a]") : _(" appended"));
@@ -3671,7 +3649,7 @@ nofail:
   if (errmsg != NULL) {
     int numlen = errnum != NULL ? (int)STRLEN(errnum) : 0;
 
-    attr = hl_attr(HLF_E);      /* set highlight for error messages */
+    int attr = hl_attr(HLF_E);   // set highlight for error messages
     msg_add_fname(buf,
 #ifndef UNIX
         sfname
