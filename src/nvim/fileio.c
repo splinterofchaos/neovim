@@ -256,83 +256,20 @@ readfile (
     int flags
 )
 {
-  int fd = 0;
+  int fd = 0;  // File descriptor of `fname`.
   int newfile = (flags & READ_NEW);
-  int check_readonly;
   int filtering = (flags & READ_FILTER);
   int read_stdin = (flags & READ_STDIN);
   int read_buffer = (flags & READ_BUFFER);
   int set_options = newfile || read_buffer
                     || (eap != NULL && eap->read_edit);
-  linenr_T read_buf_lnum = 1;           /* next line to read from curbuf */
-  colnr_T read_buf_col = 0;             /* next char to read from this line */
-  char_u c;
-  linenr_T lnum = from;
   char_u      *ptr = NULL;              /* pointer into read buffer */
   char_u      *buffer = NULL;           /* read buffer */
-  char_u      *new_buffer = NULL;       /* init to shut up gcc */
   char_u      *line_start = NULL;       /* init to shut up gcc */
-  int wasempty;                         /* buffer was empty before reading */
-  colnr_T len;
   long size = 0;
-  char_u      *p;
-  off_t filesize = 0;
-  int skip_read = FALSE;
-  context_sha256_T sha_ctx;
-  int read_undo_file = FALSE;
-  int split = 0;                        /* number of split lines */
-  linenr_T linecnt;
-  int error = FALSE;                    /* errors encountered */
-  int ff_error = EOL_UNKNOWN;           /* file format with errors */
-  long linerest = 0;                    /* remaining chars in line */
-#ifdef UNIX
-  int perm = 0;
-  int swap_mode = -1;                   /* protection bits for swap file */
-#else
-  int perm;
-#endif
-  int fileformat = 0;                   /* end-of-line format */
-  int keep_fileformat = FALSE;
-  int file_readonly;
-  linenr_T skip_count = 0;
-  linenr_T read_count = 0;
+  int split = 0;  // number of split lines; TODO(SoC): This is always zero!
   int msg_save = msg_scroll;
-  linenr_T read_no_eol_lnum = 0;        /* non-zero lnum when last line of
-                                        * last read was missing the eol */
-  int try_mac = (vim_strchr(p_ffs, 'm') != NULL);
-  int try_dos = (vim_strchr(p_ffs, 'd') != NULL);
-  int try_unix = (vim_strchr(p_ffs, 'x') != NULL);
-  int file_rewind = FALSE;
-  int can_retry;
-  linenr_T conv_error = 0;              /* line nr with conversion error */
-  linenr_T illegal_byte = 0;            /* line nr with illegal byte */
-  int keep_dest_enc = FALSE;            /* don't retry when char doesn't fit
-                                           in destination encoding */
-  int bad_char_behavior = BAD_REPLACE;
-  /* BAD_KEEP, BAD_DROP or character to
-   * replace with */
   char_u      *tmpname = NULL;          /* name of 'charconvert' output file */
-  int fio_flags = 0;
-  char_u      *fenc;                    /* fileencoding to use */
-  int fenc_alloced;                     /* fenc_next is in allocated memory */
-  char_u      *fenc_next = NULL;        /* next item in 'fencs' or NULL */
-  int advance_fenc = FALSE;
-  long real_size = 0;
-# ifdef USE_ICONV
-  iconv_t iconv_fd = (iconv_t)-1;       /* descriptor for iconv() or -1 */
-  int did_iconv = FALSE;                /* TRUE when iconv() failed and trying
-                                           'charconvert' next */
-# endif
-  int converted = FALSE;                /* TRUE if conversion done */
-  int notconverted = FALSE;             /* TRUE if conversion wanted but it
-                                           wasn't possible */
-  char_u conv_rest[CONV_RESTLEN];
-  int conv_restlen = 0;                 /* nr of bytes in conv_rest[] */
-  buf_T       *old_curbuf;
-  char_u      *old_b_ffname;
-  char_u      *old_b_fname;
-  int using_b_ffname;
-  int using_b_fname;
 
   curbuf->b_no_eol_lnum = 0;    /* in case it was set by the previous read */
 
@@ -355,12 +292,13 @@ readfile (
    * curbuf->b_fname to detect whether they are altered as a result of
    * executing nasty autocommands.  Also check if "fname" and "sfname"
    * point to one of these values. */
-  old_curbuf = curbuf;
-  old_b_ffname = curbuf->b_ffname;
-  old_b_fname = curbuf->b_fname;
-  using_b_ffname = (fname == curbuf->b_ffname)
-                   || (sfname == curbuf->b_ffname);
-  using_b_fname = (fname == curbuf->b_fname) || (sfname == curbuf->b_fname);
+  buf_T *old_curbuf = curbuf;
+  char_u *old_b_ffname = curbuf->b_ffname;
+  char_u *old_b_fname = curbuf->b_fname;
+  bool using_b_ffname = (fname == curbuf->b_ffname)
+                     || (sfname == curbuf->b_ffname);
+  bool using_b_fname = (fname == curbuf->b_fname)
+                    || (sfname == curbuf->b_fname);
 
   /* After reading a file the cursor line changes but we don't want to
    * display the line. */
@@ -417,7 +355,7 @@ readfile (
    * If the name is too long we might crash further on, quit here.
    */
   if (fname != NULL && *fname != NUL) {
-    p = fname + STRLEN(fname);
+    char_u *p = fname + STRLEN(fname);
     if (after_pathsep(fname, p) || STRLEN(fname) >= MAXPATHL) {
       filemess(curbuf, fname, (char_u *)_("Illegal file name"), 0);
       msg_end();
@@ -426,8 +364,10 @@ readfile (
     }
   }
 
-  if (!read_stdin && !read_buffer) {
 #ifdef UNIX
+  int perm = 0;
+  int swap_mode = -1;                   // protection bits for swap file
+  if (!read_stdin && !read_buffer) {
     /*
      * On Unix it is possible to read a directory, so we have to
      * check for it before os_open().
@@ -453,8 +393,10 @@ readfile (
       msg_scroll = msg_save;
       return FAIL;
     }
-#endif
   }
+#else  // UNIX
+  int perm;
+#endif
 
   /* Set default or forced 'fileformat' and 'binary'. */
   set_file_options(set_options, eap);
@@ -465,7 +407,7 @@ readfile (
    * Don't reset it when in readonly mode
    * Only set/reset b_p_ro when BF_CHECK_RO is set.
    */
-  check_readonly = (newfile && (curbuf->b_flags & BF_CHECK_RO));
+  bool check_readonly = (newfile && (curbuf->b_flags & BF_CHECK_RO));
   if (check_readonly && !readonlymode)
     curbuf->b_p_ro = FALSE;
 
@@ -501,19 +443,17 @@ readfile (
     curbuf->b_flags &= ~(BF_NEW | BF_NEW_W);
   }
 
-  /*
-   * Check readonly by trying to open the file for writing.
-   * If this fails, we know that the file is readonly.
-   */
-  file_readonly = FALSE;
+  // Check readonly by trying to open the file for writing.
+  // If this fails, we know that the file is readonly.
+  bool file_readonly = false;
   if (!read_buffer && !read_stdin) {
     if (!newfile || readonlymode) {
-      file_readonly = TRUE;
+      file_readonly = true;
     } else if ((fd = os_open((char *)fname, O_RDWR, 0)) < 0) {
       // opening in readwrite mode failed => file is readonly
-      file_readonly = TRUE;
+      file_readonly = true;
     }
-    if (file_readonly == TRUE) {
+    if (file_readonly == true) {
       // try to open readonly
       fd = os_open((char *)fname, O_RDONLY, 0);
     }
@@ -525,7 +465,7 @@ readfile (
     /*
      * On non-unix systems we can't open a directory, check here.
      */
-    perm = os_getperm(fname);      /* check if the file exists */
+    int32_t perm = os_getperm(fname);  // check if the file exists
     if (os_isdir(fname)) {
       filemess(curbuf, sfname, (char_u *)_("is a directory"), 0);
       curbuf->b_p_ro = TRUE;            /* must use "w!" now */
@@ -710,8 +650,8 @@ readfile (
     }
   }
 
-  /* Autocommands may add lines to the file, need to check if it is empty */
-  wasempty = (curbuf->b_ml.ml_flags & ML_EMPTY);
+  // Autocommands may add lines to the file, need to check if it is empty
+  bool wasempty = (curbuf->b_ml.ml_flags & ML_EMPTY);
 
   if (!recoverymode && !filtering && !(flags & READ_DUMMY)) {
     /*
@@ -732,9 +672,11 @@ readfile (
    * Set linecnt now, before the "retry" caused by a wrong guess for
    * fileformat, and after the autocommands, which may change them.
    */
-  linecnt = curbuf->b_ml.ml_line_count;
+  linenr_T linecnt = curbuf->b_ml.ml_line_count;
 
-  /* "++bad=" argument. */
+  // "++bad=" argument.
+  int bad_char_behavior = BAD_REPLACE;  // BAD_KEEP, BAD_DROP or character to
+                                        // replace with
   if (eap != NULL && eap->bad_char != 0) {
     bad_char_behavior = eap->bad_char;
     if (set_options)
@@ -742,9 +684,12 @@ readfile (
   } else
     curbuf->b_bad_char = 0;
 
-  /*
-   * Decide which 'encoding' to use or use first.
-   */
+  // Decide which 'encoding' to use or use first.
+  char_u *fenc;                         // fileencoding to use
+  int fenc_alloced;                     // fenc_next is in allocated memory
+  char_u *fenc_next = NULL;             // next item in 'fencs' or NULL
+  int keep_dest_enc = false;            // don't retry when char doesn't fit
+                                        // in destination encoding
   if (eap != NULL && eap->force_enc != 0) {
     fenc = enc_canonize(eap->cmd + eap->force_enc);
     fenc_alloced = TRUE;
@@ -763,15 +708,15 @@ readfile (
      * It is needed when the first line contains non-ASCII characters.
      * That is only in *.??x files. */
     fenc = (char_u *)"latin1";
-    c = enc_utf8;
+    char_u c = enc_utf8;
     if (!c && !read_stdin) {
       fc = fname[STRLEN(fname) - 1];
       if (TOLOWER_ASC(fc) == 'x') {
         /* Read the first line (and a bit more).  Immediately rewind to
          * the start of the file.  If the read() fails "len" is -1. */
-        len = read_eintr(fd, firstline, 80);
+        linenr_T len = read_eintr(fd, firstline, 80);
         lseek(fd, (off_t)0L, SEEK_SET);
-        for (p = firstline; p < firstline + len; ++p)
+        for (char_u *p = firstline; p < firstline + len; ++p)
           if (*p >= 0x80) {
             c = TRUE;
             break;
@@ -798,6 +743,39 @@ readfile (
     fenc = next_fenc(&fenc_next);
     fenc_alloced = TRUE;
   }
+
+  linenr_T read_buf_lnum = 1;           // next line to read from curbuf
+  colnr_T read_buf_col = 0;             // next char to read from this line
+  linenr_T lnum = from;
+  int fileformat = 0;                   // end-of-line format
+  bool keep_fileformat = false;
+  bool skip_read = false;
+  bool error = false;                   // errors encountered
+  int ff_error = EOL_UNKNOWN;           // file format with errors
+  off_t filesize = 0;
+  long linerest = 0;                    // remaining chars in line
+  linenr_T skip_count = 0;
+  linenr_T read_count = 0;
+  int try_mac = (vim_strchr(p_ffs, 'm') != NULL);
+  int try_dos = (vim_strchr(p_ffs, 'd') != NULL);
+  int try_unix = (vim_strchr(p_ffs, 'x') != NULL);
+  int file_rewind = false;
+  linenr_T conv_error = 0;              // line nr with conversion error
+  linenr_T illegal_byte = 0;            // line nr with illegal byte
+  int advance_fenc = false;
+  long real_size = 0;
+# ifdef USE_ICONV
+  iconv_t iconv_fd = (iconv_t)-1;       // descriptor for iconv() or -1
+  int did_iconv = false;                // TRUE when iconv() failed and trying
+                                        // 'charconvert' next
+# endif
+  int notconverted = false;             // TRUE if conversion wanted but it
+                                        // wasn't possible
+  char_u conv_rest[CONV_RESTLEN];
+  int conv_restlen = 0;                 // nr of bytes in conv_rest[]
+
+  context_sha256_T sha_ctx;             // Used for undo file.
+  int read_undo_file = false;
 
   /*
    * Jump back here to retry reading the file in different ways.
@@ -903,8 +881,8 @@ retry:
    * Conversion may be required when the encoding of the file is different
    * from 'encoding' or 'encoding' is UTF-16, UCS-2 or UCS-4.
    */
-  fio_flags = 0;
-  converted = need_conversion(fenc);
+  int fio_flags = 0;
+  bool converted = need_conversion(fenc);
   if (converted) {
 
     /* "ucs-bom" means we need to check the first bytes of the file
@@ -982,7 +960,7 @@ retry:
   /* Set "can_retry" when it's possible to rewind the file and try with
    * another "fenc" value.  It's FALSE when no other "fenc" to try, reading
    * stdin or fixed at a specific encoding. */
-  can_retry = (*fenc != NUL && !read_stdin && !keep_dest_enc);
+  bool can_retry = (*fenc != NUL && !read_stdin && !keep_dest_enc);
 
   if (!skip_read) {
     linerest = 0;
@@ -1011,6 +989,7 @@ retry:
       if (!skip_read) {
         size = 0x10000L;                            /* use buffer >= 64K */
 
+        char_u *new_buffer = NULL;
         for (; size >= 10; size /= 2) {
           new_buffer = verbose_try_malloc((size_t)size + (size_t)linerest + 1);
           if (new_buffer) {
@@ -1073,7 +1052,7 @@ retry:
 
             tlen = 0;
             for (;; ) {
-              p = ml_get(read_buf_lnum) + read_buf_col;
+              char_u *p = ml_get(read_buf_lnum) + read_buf_col;
               n = (int)STRLEN(p);
               if ((int)tlen + n + 1 > size) {
                 /* Filled up to "size", append partial line.
@@ -1305,6 +1284,7 @@ retry:
         int u8c;
         char_u  *dest;
         char_u  *tail = NULL;
+        char_u *p;
 
         /*
          * "enc_utf8" set: Convert Unicode or Latin1 to UTF-8.
@@ -1431,7 +1411,7 @@ retry:
             if (*--p < 0x80)
               u8c = *p;
             else {
-              len = utf_head_off(ptr, p);
+              linenr_T len = utf_head_off(ptr, p);
               p -= len;
               u8c = utf_ptr2char(p);
               if (len == 0) {
@@ -1485,6 +1465,7 @@ retry:
         int incomplete_tail = FALSE;
 
         /* Reading UTF-8: Check if the bytes are valid UTF-8. */
+        char_u *p;
         for (p = ptr;; ++p) {
           int todo = (int)((ptr + size) - p);
           int l;
@@ -1566,6 +1547,7 @@ rewind_retry:
       if (fileformat == EOL_UNKNOWN) {
         /* First try finding a NL, for Dos and Unix */
         if (try_dos || try_unix) {
+          char_u *p;
           for (p = ptr; p < ptr + size; ++p) {
             if (*p == NL) {
               if (!try_unix
@@ -1620,16 +1602,18 @@ rewind_retry:
       --ptr;
       while (++ptr, --size >= 0) {
         /* catch most common case first */
-        if ((c = *ptr) != NUL && c != CAR && c != NL)
+        char_u c = *ptr;
+        if (c != NUL && c != CAR && c != NL) {
           continue;
-        if (c == NUL)
+        }
+        if (c == NUL) {
           *ptr = NL;            /* NULs are replaced by newlines! */
-        else if (c == NL)
+        } else if (c == NL) {
           *ptr = CAR;           /* NLs are replaced by CRs! */
-        else {
+        } else {
           if (skip_count == 0) {
             *ptr = NUL;                     /* end of line */
-            len = (colnr_T) (ptr - line_start + 1);
+            colnr_T len = (colnr_T) (ptr - line_start + 1);
             if (ml_append(lnum, line_start, len, newfile) == FAIL) {
               error = TRUE;
               break;
@@ -1650,14 +1634,16 @@ rewind_retry:
     } else {
       --ptr;
       while (++ptr, --size >= 0) {
-        if ((c = *ptr) != NUL && c != NL)          /* catch most common case */
+        char_u c = *ptr;
+        if (c != NUL && c != NL) {        /* catch most common case */
           continue;
-        if (c == NUL)
+        }
+        if (c == NUL) {
           *ptr = NL;            /* NULs are replaced by newlines! */
-        else {
+        } else {
           if (skip_count == 0) {
             *ptr = NUL;                         /* end of line */
-            len = (colnr_T)(ptr - line_start + 1);
+            colnr_T len = (colnr_T)(ptr - line_start + 1);
             if (fileformat == EOL_DOS) {
               if (ptr[-1] == CAR) {             /* remove CR */
                 ptr[-1] = NUL;
@@ -1711,11 +1697,10 @@ failed:
   if (error && read_count == 0)
     error = FALSE;
 
-  /*
-   * If we get EOF in the middle of a line, note the fact and
-   * complete the line ourselves.
-   * In Dos format ignore a trailing CTRL-Z, unless 'binary' set.
-   */
+  // If we get EOF in the middle of a line, note the fact and
+  // complete the line ourselves.
+  // In Dos format ignore a trailing CTRL-Z, unless 'binary' set.
+  linenr_T read_no_eol_lnum = 0;
   if (!error
       && !got_int
       && linerest != 0
@@ -1727,7 +1712,7 @@ failed:
     if (set_options)
       curbuf->b_p_eol = FALSE;
     *ptr = NUL;
-    len = (colnr_T)(ptr - line_start + 1);
+    colnr_T len = (colnr_T)(ptr - line_start + 1);
     if (ml_append(lnum, line_start, len, newfile) == FAIL)
       error = TRUE;
     else {
@@ -1825,79 +1810,81 @@ failed:
     }
 
     if (!filtering && !(flags & READ_DUMMY)) {
+      bool insert_space;
       msg_add_fname(curbuf, sfname);         /* fname in IObuff with quotes */
-      c = FALSE;
+      insert_space = false;
 
 #ifdef UNIX
 # ifdef S_ISFIFO
       if (S_ISFIFO(perm)) {                         /* fifo or socket */
         STRCAT(IObuff, _("[fifo/socket]"));
-        c = TRUE;
+        insert_space = true;
       }
 # else
 #  ifdef S_IFIFO
       if ((perm & S_IFMT) == S_IFIFO) {             /* fifo */
         STRCAT(IObuff, _("[fifo]"));
-        c = TRUE;
+        insert_space = true;
       }
 #  endif
 #  ifdef S_IFSOCK
       if ((perm & S_IFMT) == S_IFSOCK) {            /* or socket */
         STRCAT(IObuff, _("[socket]"));
-        c = TRUE;
+        insert_space = true;
       }
 #  endif
 # endif
 # ifdef OPEN_CHR_FILES
       if (S_ISCHR(perm)) {                          /* or character special */
         STRCAT(IObuff, _("[character special]"));
-        c = TRUE;
+        insert_space = true;
       }
 # endif
 #endif
       if (curbuf->b_p_ro) {
         STRCAT(IObuff, shortmess(SHM_RO) ? _("[RO]") : _("[readonly]"));
-        c = TRUE;
+        insert_space = true;
       }
       if (read_no_eol_lnum) {
         msg_add_eol();
-        c = TRUE;
+        insert_space = true;
       }
       if (ff_error == EOL_DOS) {
         STRCAT(IObuff, _("[CR missing]"));
-        c = TRUE;
+        insert_space = true;
       }
       if (split) {
         STRCAT(IObuff, _("[long lines split]"));
-        c = TRUE;
+        insert_space = true;
       }
       if (notconverted) {
         STRCAT(IObuff, _("[NOT converted]"));
-        c = TRUE;
+        insert_space = true;
       } else if (converted) {
         STRCAT(IObuff, _("[converted]"));
-        c = TRUE;
+        insert_space = true;
       }
       if (conv_error != 0) {
         sprintf((char *)IObuff + STRLEN(IObuff),
             _("[CONVERSION ERROR in line %" PRId64 "]"), (int64_t)conv_error);
-        c = TRUE;
+        insert_space = true;
       } else if (illegal_byte > 0) {
         sprintf((char *)IObuff + STRLEN(IObuff),
             _("[ILLEGAL BYTE in line %" PRId64 "]"), (int64_t)illegal_byte);
-        c = TRUE;
+        insert_space = true;
       } else if (error)  {
         STRCAT(IObuff, _("[READ ERRORS]"));
-        c = TRUE;
+        insert_space = true;
       }
-      if (msg_add_fileformat(fileformat))
-        c = TRUE;
-        msg_add_lines(c, (long)linecnt, filesize);
+      if (msg_add_fileformat(fileformat)) {
+        insert_space = true;
+      }
+      msg_add_lines(insert_space, (long)linecnt, filesize);
 
       free(keep_msg);
       keep_msg = NULL;
       msg_scrolled_ign = TRUE;
-      p = msg_trunc_attr(IObuff, FALSE, 0);
+      char_u *p = msg_trunc_attr(IObuff, FALSE, 0);
       if (read_stdin || read_buffer || restart_edit != 0
           || (msg_scrolled != 0 && !need_wait_return))
         /* Need to repeat the message after redrawing when:
@@ -2635,6 +2622,7 @@ buf_write (
   }
 #endif /* !UNIX */
 
+  bool file_readonly = false;               // overwritten file is read-only
   if (!device && !newfile) {
     /*
      * Check if the file is really writable (when renaming the file to
@@ -3094,7 +3082,8 @@ nobackup:
    * multi-byte conversion. */
   wfname = fname;
 
-  /* Check for forced 'fileencoding' from "++opt=val" argument. */
+  // Check for forced 'fileencoding' from "++opt=val" argument.
+  char_u *fenc;                // effective 'fileencoding'
   if (eap != NULL && eap->force_enc != 0) {
     fenc = eap->cmd + eap->force_enc;
     fenc = enc_canonize(fenc);
