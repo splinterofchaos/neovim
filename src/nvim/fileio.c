@@ -267,7 +267,6 @@ readfile (
   char_u      *buffer = NULL;           /* read buffer */
   char_u      *line_start = NULL;       /* init to shut up gcc */
   long size = 0;
-  int split = 0;  // number of split lines; TODO(SoC): This is always zero!
   int msg_save = msg_scroll;
   char_u      *tmpname = NULL;          /* name of 'charconvert' output file */
 
@@ -1851,10 +1850,6 @@ failed:
       }
       if (ff_error == EOL_DOS) {
         STRCAT(IObuff, _("[CR missing]"));
-        insert_space = true;
-      }
-      if (split) {
-        STRCAT(IObuff, _("[long lines split]"));
         insert_space = true;
       }
       if (notconverted) {
