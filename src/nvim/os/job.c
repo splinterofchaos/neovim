@@ -316,8 +316,13 @@ int job_wait(Job *job, int ms) FUNC_ATTR_NONNULL_ALL
 
   settmode(old_mode);
 
+  int ret = (job->pending_refs) ? -1 : (int) job->status;
+
+  // Free the job resources
+  free_job(job);
+
   // return -1 for a timeout, the job status otherwise
-  return (job->pending_refs) ? -1 : (int) job->status;
+  return ret;
 }
 
 /// Close the pipe used to write to the job.
@@ -410,9 +415,6 @@ static void job_exit_callback(Job *job)
     // Invoke the exit callback
     job->exit_cb(job, job->data);
   }
-
-  // Free the job resources
-  free_job(job);
 
   // Stop polling job status if this was the last
   job_count--;
