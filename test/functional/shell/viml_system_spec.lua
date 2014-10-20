@@ -26,18 +26,21 @@ describe('system()', function()
   describe('passing no input', function()
     it('returns the program output', function()
       eq("echoed", eval('system("echo -n echoed")'))
+      eq(0, eval('v:shell_error'))
     end)
   end)
 
   describe('passing input', function()
     it('returns the program output', function()
       eq("input", eval('system("cat -", "input")'))
+      eq(0, eval('v:shell_error'))
     end)
   end)
 
   describe('passing number as input', function()
     it('stringifies the input', function()
       eq('1', eval('system("cat", 1)'))
+      eq(0, eval('v:shell_error'))
     end)
   end)
 
@@ -49,6 +52,7 @@ describe('system()', function()
 
     it('replaces NULs by SOH characters', function()
       eq('part1\001part2\001part3\n', eval('system("cat '..fname..'")'))
+      eq(0, eval('v:shell_error'))
     end)
   end)
 
@@ -56,6 +60,7 @@ describe('system()', function()
     it('joins list items with linefeed characters', function()
       eq('line1\nline2\nline3',
         eval("system('cat -', ['line1', 'line2', 'line3'])"))
+      eq(0, eval('v:shell_error'))
     end)
 
     -- Notice that NULs are converted to SOH when the data is read back. This
@@ -66,6 +71,7 @@ describe('system()', function()
       it('converts linefeed characters to NULs', function()
         eq('l1\001p2\nline2\001a\001b\nl3',
           eval([[system('cat -', ["l1\np2", "line2\na\nb", 'l3'])]]))
+        eq(0, eval('v:shell_error'))
       end)
     end)
 
@@ -73,6 +79,7 @@ describe('system()', function()
       it('preserves whitespace, replacing linefeeds by NULs', function()
         eq('line \nline2\001\n\001line3',
           eval([[system('cat -', ['line ', "line2\n", "\nline3"])]]))
+        eq(0, eval('v:shell_error'))
       end)
     end)
   end)
@@ -86,6 +93,7 @@ describe('systemlist()', function()
   describe('passing string with linefeed characters as input', function()
     it('splits the output on linefeed characters', function()
       eq({'abc', 'def', 'ghi'}, eval([[systemlist("cat -", "abc\ndef\nghi")]]))
+      eq(0, eval('v:shell_error'))
     end)
   end)
 
@@ -97,6 +105,7 @@ describe('systemlist()', function()
 
     it('replaces NULs by newline characters', function()
       eq({'part1\npart2\npart3'}, eval('systemlist("cat '..fname..'")'))
+      eq(0, eval('v:shell_error'))
     end)
   end)
 
@@ -104,6 +113,7 @@ describe('systemlist()', function()
     it('joins list items with linefeed characters', function()
       eq({'line1', 'line2', 'line3'},
         eval("systemlist('cat -', ['line1', 'line2', 'line3'])"))
+      eq(0, eval('v:shell_error'))
     end)
 
     -- Unlike `system()` which uses SOH to represent NULs, with `systemlist()`
@@ -112,6 +122,7 @@ describe('systemlist()', function()
       it('converts linefeed characters to NULs', function()
         eq({'l1\np2', 'line2\na\nb', 'l3'},
           eval([[systemlist('cat -', ["l1\np2", "line2\na\nb", 'l3'])]]))
+        eq(0, eval('v:shell_error'))
       end)
     end)
 
@@ -119,6 +130,7 @@ describe('systemlist()', function()
       it('preserves whitespace, replacing linefeeds by NULs', function()
         eq({'line ', 'line2\n', '\nline3'},
           eval([[systemlist('cat -', ['line ', "line2\n", "\nline3"])]]))
+        eq(0, eval('v:shell_error'))
       end)
     end)
   end)
