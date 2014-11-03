@@ -672,9 +672,7 @@ void ex_diffupdate(exarg_T *eap)
 
   // We need three temp file names.
   char_u *tmp_orig = vim_tempname();
-  char_u *tmp_new = vim_tempname();
-
-  if ((tmp_orig == NULL) || (tmp_new == NULL)) {
+  if (tmp_orig == NULL) {
     goto theend;
   }
 
@@ -695,18 +693,8 @@ void ex_diffupdate(exarg_T *eap)
         io_error = TRUE;
       }
       fclose(fd);
-      fd = mch_fopen((char *)tmp_new, "w");
 
-      if (fd == NULL) {
-        io_error = TRUE;
-      } else {
-        if (fwrite("line2\n", (size_t)6, (size_t)1, fd) != 1) {
-          io_error = TRUE;
-        }
-        fclose(fd);
-        diff_file(tmp_orig, tmp_new, diff_check_cb, &ok);
-        os_remove((char *)tmp_new);
-      }
+      diff_file(tmp_orig, "line2\n", strlen("line2\n"), diff_check_cb, &ok);
       os_remove((char *)tmp_orig);
     }
 
@@ -759,9 +747,23 @@ void ex_diffupdate(exarg_T *eap)
       continue;
     }
 
-    if (diff_write(buf, tmp_new) == FAIL) {
-      continue;
+    // Write the contents of `buf` to a garray to send to diff_file().
+    // TODO(SplinterOfChaos): Can we know how much space this will take?
+    garray_T ga;
+    ga_init(&ga, sizeof(char), 0xFF);
+    for (linenr_T lnum = 1; lnum < buf->b_ml.ml_line_count + 1; lnum++) {
+      size_t pos = ga.ga_len;
+      ga_concat(&ga, ml_get_buf(buf, lnum, false));
+      strchrsub((char *)ga.ga_data + pos, NL, NUL);
+      if (lnum < buf->b_ml.ml_line_count) {
+        ga_append(&ga, '\n');
+      }
     }
+    if (!ga.ga_data || ((char *)ga.ga_data)[ga.ga_len] != '\n') {
+      // Make sure the buffer ends in a newline.
+      ga_append(&ga, '\n');
+    }
+
     struct diff_data data = {
       .idx_orig = idx_orig,
       .idx_new = idx_new,
@@ -769,8 +771,10 @@ void ex_diffupdate(exarg_T *eap)
       .dprev = NULL,
       .notset = true,
     };
-    diff_file(tmp_orig, tmp_new, diff_read_cb, &data);
-    os_remove((char *)tmp_new);
+    // Read the diff output and add each entry to the diff list.
+    diff_file(tmp_orig, ga.ga_data, ga.ga_len, diff_read_cb, &data);
+
+    ga_clear(&ga);
   }
   os_remove((char *)tmp_orig);
 
@@ -781,7 +785,6 @@ void ex_diffupdate(exarg_T *eap)
 
 theend:
   free(tmp_orig);
-  free(tmp_new);
 }
 
 /// Checks that the diff program works.
@@ -804,19 +807,22 @@ static void diff_check_cb(RStream *rstream, void *job, bool eof)
 /// Make a diff between files "tmp_orig" and "tmp_new".
 ///
 /// @param tmp_orig
-/// @param tmp_new
-/// @param read A callback to send to `call_shell()`.
-/// @param data `read`'s associated data.
-static void diff_file(char_u *tmp_orig, char_u *tmp_new,
+/// @param cmp      The text of the file to compare with `tmp_orig`.
+/// @param cmp_len  The length of `cmp`.
+/// @param tmp_diff
+static void diff_file(char_u *tmp_orig, char *cmp, size_t cmp_len,
                       rstream_cb read, void *data)
 {
   if (*p_dex != NUL) {
     // Use 'diffexpr' to generate the diff file.
+    char_u *tmp_new = vim_tempname();
     char_u *tmp_diff = vim_tempname();
     eval_diff(tmp_orig, tmp_new, tmp_diff);
+    free(tmp_new);
+    free(tmp_diff);
   } else {
-    size_t len = STRLEN(tmp_orig) + STRLEN(tmp_new) + STRLEN(p_srr) + 27;
-    char_u *cmd = xmalloc(len);
+    size_t len = STRLEN(tmp_orig) + STRLEN(p_srr) + 27;
+    char *cmd = xmalloc(len);
 
     /* We don't want $DIFF_OPTIONS to get in the way. */
     if (os_getenv("DIFF_OPTIONS")) {
@@ -826,23 +832,27 @@ static void diff_file(char_u *tmp_orig, char_u *tmp_new,
     /* Build the diff command and execute it.  Always use -a, binary
      * differences are of no use.  Ignore errors, diff returns
      * non-zero when differences have been found. */
-    vim_snprintf((char *)cmd, len, "diff %s%s%s%s%s %s",
+    vim_snprintf(cmd, len, "diff %s%s%s%s%s -",
                  diff_a_works == FALSE ? "" : "-a ",
                  "",
                  (diff_flags & DIFF_IWHITE) ? "-b " : "",
                  (diff_flags & DIFF_ICASE) ? "-i " : "",
-                 tmp_orig, tmp_new);
-    //block_autocmds(); /* Avoid ShellCmdPost stuff */
+                 tmp_orig);
 
     char **argv = shell_build_argv(cmd, NULL);
     int stat;
-    Job *job = job_start(argv, data, false, read, NULL, NULL, 0, &stat);
+    Job *job = job_start(argv, data, true, read, NULL, NULL, 0, &stat);
+
     if (!job) {
       free(argv);
       return;
     }
+
+    WBuffer *input_buffer = wstream_new_buffer((char *) cmp, cmp_len, 1, NULL);
+    job_write(job, input_buffer);
+    job_close_in(job);
+
     job_wait(job, -1);
-    //unblock_autocmds();
     free(cmd);
   }
 }
