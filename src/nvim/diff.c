@@ -2,6 +2,7 @@
 ///
 /// Code for diff'ing two, three or four buffers.
 
+#include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <stdbool.h>
@@ -633,6 +634,8 @@ struct diff_data {
   diff_T *dp;
 };
 
+Job *diff_job = NULL;
+
 /// Completely update the diffs for the buffers involved.
 ///
 /// This uses the ordinary "diff" command.
@@ -694,7 +697,12 @@ void ex_diffupdate(exarg_T *eap)
       }
       fclose(fd);
 
-      diff_file(tmp_orig, "line2\n", strlen("line2\n"), diff_check_cb, &ok);
+      Job *job = diff_file(tmp_orig, diff_check_cb, &ok);
+      WBuffer *input_buffer = wstream_new_buffer((char *) "line2\n", strlen("line2\n"), 1, NULL);
+      job_write(job, input_buffer);
+      job_close_in(job);
+
+      job_wait(job, -1);
       os_remove((char *)tmp_orig);
     }
 
@@ -749,20 +757,6 @@ void ex_diffupdate(exarg_T *eap)
 
     // Write the contents of `buf` to a garray to send to diff_file().
     // TODO(SplinterOfChaos): Can we know how much space this will take?
-    garray_T ga;
-    ga_init(&ga, sizeof(char), 0xFF);
-    for (linenr_T lnum = 1; lnum < buf->b_ml.ml_line_count + 1; lnum++) {
-      size_t pos = ga.ga_len;
-      ga_concat(&ga, ml_get_buf(buf, lnum, false));
-      strchrsub((char *)ga.ga_data + pos, NL, NUL);
-      if (lnum < buf->b_ml.ml_line_count) {
-        ga_append(&ga, '\n');
-      }
-    }
-    if (!ga.ga_data || ((char *)ga.ga_data)[ga.ga_len] != '\n') {
-      // Make sure the buffer ends in a newline.
-      ga_append(&ga, '\n');
-    }
 
     struct diff_data data = {
       .idx_orig = idx_orig,
@@ -772,9 +766,22 @@ void ex_diffupdate(exarg_T *eap)
       .notset = true,
     };
     // Read the diff output and add each entry to the diff list.
-    diff_file(tmp_orig, ga.ga_data, ga.ga_len, diff_read_cb, &data);
+    Job *job = diff_file(tmp_orig, diff_read_cb, &data);
+    
+    garray_T ga;
+    ga_init(&ga, sizeof(char), 0xFFFF);
+    for (linenr_T lnum = 1; lnum < buf->b_ml.ml_line_count + 1; lnum++) {
+      size_t pos = ga.ga_len;
+      ga_concat(&ga, ml_get_buf(buf, lnum, false));
+      strchrsub((char *)ga.ga_data + pos, NL, NUL);
+      ga_append(&ga, '\n');
+    }
 
-    ga_clear(&ga);
+    WBuffer *input_buffer = wstream_new_buffer(ga.ga_data, ga.ga_len, 1, free);
+    job_write(job, input_buffer);
+    job_close_in(job);
+
+    job_wait(job, -1);
   }
   os_remove((char *)tmp_orig);
 
@@ -810,8 +817,7 @@ static void diff_check_cb(RStream *rstream, void *job, bool eof)
 /// @param cmp      The text of the file to compare with `tmp_orig`.
 /// @param cmp_len  The length of `cmp`.
 /// @param tmp_diff
-static void diff_file(char_u *tmp_orig, char *cmp, size_t cmp_len,
-                      rstream_cb read, void *data)
+static Job *diff_file(char_u *tmp_orig, rstream_cb read, void *data)
 {
   if (*p_dex != NUL) {
     // Use 'diffexpr' to generate the diff file.
@@ -820,6 +826,7 @@ static void diff_file(char_u *tmp_orig, char *cmp, size_t cmp_len,
     eval_diff(tmp_orig, tmp_new, tmp_diff);
     free(tmp_new);
     free(tmp_diff);
+    return NULL;
   } else {
     size_t len = STRLEN(tmp_orig) + STRLEN(p_srr) + 27;
     char *cmd = xmalloc(len);
@@ -841,18 +848,14 @@ static void diff_file(char_u *tmp_orig, char *cmp, size_t cmp_len,
 
     char **argv = shell_build_argv(cmd, NULL);
     int stat;
-    Job *job = job_start(argv, data, true, read, NULL, NULL, 0, &stat);
+    Job *job = job_start(argv, data, true, read, NULL, NULL, 10000, &stat);
 
     if (!job) {
       free(argv);
-      return;
     }
 
-    WBuffer *input_buffer = wstream_new_buffer((char *) cmp, cmp_len, 1, NULL);
-    job_write(job, input_buffer);
-    job_close_in(job);
+    return job;
 
-    job_wait(job, -1);
     free(cmd);
   }
 }
