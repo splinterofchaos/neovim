@@ -22,6 +22,14 @@ typedef enum {
   kErrorTypeValidation
 } ErrorType;
 
+typedef enum {
+  kMessageTypeRequest,
+  kMessageTypeResponse,
+  kMessageTypeNotification
+} MessageType;
+
+#define NO_RESPONSE ((uint64_t)-1)
+
 typedef struct {
   ErrorType type;
   char msg[1024];
