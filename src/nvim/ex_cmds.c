@@ -5806,11 +5806,6 @@ void ex_sign(exarg_T *eap)
 			arg += 7;
 			sp->sn_line_hl = syn_check_group(arg, (int)(p - arg));
 		    }
-		    else if (STRNCMP(arg, "texthl=", 7) == 0)
-		    {
-			arg += 7;
-			sp->sn_text_hl = syn_check_group(arg, (int)(p - arg));
-		    }
 		    else
 		    {
 			EMSG2(_(e_invarg2), arg);
