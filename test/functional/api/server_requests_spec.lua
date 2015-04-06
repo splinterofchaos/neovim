@@ -3,8 +3,8 @@
 -- be running.
 local helpers = require('test.functional.helpers')
 local clear, nvim, eval = helpers.clear, helpers.nvim, helpers.eval
-local eq, run, stop = helpers.eq, helpers.run, helpers.stop
-
+local eq, neq, run, stop = helpers.eq, helpers.neq, helpers.run, helpers.stop
+local nvim_prog = helpers.nvim_prog
 
 
 describe('server -> client', function()
@@ -113,6 +113,30 @@ describe('server -> client', function()
 
       run(on_request, on_notification, on_setup)
       eq(expected, notified)
+    end)
+  end)
+
+  describe('when the client is a recursive vim instance', function()
+    before_each(function()
+      nvim('command', "let vim = rpcstart('"..nvim_prog.."', ['--embed'])")
+      neq(0, eval('vim'))
+    end)
+
+    after_each(function() nvim('command', 'call rpcstop(vim)') end)
+
+    it('can send/recieve notifications and make requests', function()
+      nvim('command', "call rpcnotify(vim, 'vim_set_current_line', 'SOME TEXT')")
+
+      -- Wait for the notification to complete.
+      nvim('command', "call rpcrequest(vim, 'vim_eval', '0')")
+
+      eq('SOME TEXT', eval("rpcrequest(vim, 'vim_get_current_line')"))
+    end)
+
+    it('can communicate buffers, tabpages, and windows', function()
+      eq({2}, eval("rpcrequest(vim, 'vim_get_buffers')"))
+      eq({3}, eval("rpcrequest(vim, 'vim_get_tabpages')"))
+      eq({1}, eval("rpcrequest(vim, 'vim_get_windows')"))
     end)
   end)
 end)
